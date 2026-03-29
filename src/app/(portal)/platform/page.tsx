@@ -54,7 +54,7 @@ export default async function PlatformPage() {
 
       {/* Premium Stats Section */}
       <section>
-        <PremiumSectionTitle>Dashboard Overview</PremiumSectionTitle>
+        <PremiumSectionTitle title="Dashboard Overview" />
         <PremiumGrid cols={{ sm: 1, md: 2, lg: 5 }} gap="lg" className="mt-6">
           <PremiumStatCard
             icon="🏫"
