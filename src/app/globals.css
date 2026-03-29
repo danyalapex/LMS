@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+:root {
+  --background: #eef2df;
+  --foreground: #101621;
+  --muted: #445069;
+  --panel: #f8f9f2;
+  --border: #d7ddc2;
+  --accent: #146356;
+  --accent-soft: #d3f4e1;
+  --warning: #a9651a;
+  --warning-soft: #fae7d1;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-space-grotesk);
+  --font-mono: var(--font-jetbrains-mono);
+}
+
+body {
+  background:
+    radial-gradient(circle at 15% 10%, #f8f9f2, transparent 45%),
+    radial-gradient(circle at 80% 0%, #d3f4e1, transparent 35%),
+    linear-gradient(180deg, #eef2df 0%, #e7ecd7 55%, #e3ead6 100%);
+  color: var(--foreground);
+  font-family: var(--font-space-grotesk), "Segoe UI", sans-serif;
+}
+
+@layer components {
+  .panel {
+    @apply rounded-2xl border bg-[color:var(--panel)] shadow-sm;
+    border-color: var(--border);
+  }
+
+  .chip {
+    @apply inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold tracking-wide;
+    border-color: var(--border);
+    color: var(--muted);
+  }
+
+  .section-heading {
+    @apply text-xl font-semibold tracking-tight;
+  }
+}
