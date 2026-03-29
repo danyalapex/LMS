@@ -334,16 +334,19 @@ export function PremiumGrid({
   children,
   columns = 3,
   gap = 6,
+  className = "",
 }: {
   children: React.ReactNode;
   columns?: number;
   gap?: number;
+  className?: string;
 }) {
   const colClasses = {
     1: "grid-cols-1",
     2: "grid-cols-1 md:grid-cols-2",
     3: "grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
     4: "grid-cols-1 md:grid-cols-2 lg:grid-cols-4",
+    5: "grid-cols-1 md:grid-cols-2 lg:grid-cols-5",
   };
 
   const gapClasses = {
@@ -353,7 +356,7 @@ export function PremiumGrid({
   };
 
   return (
-    <div className={`grid ${colClasses[columns as keyof typeof colClasses] || colClasses[3]} ${gapClasses[gap as keyof typeof gapClasses] || gapClasses[6]}`}>
+    <div className={`grid ${colClasses[columns as keyof typeof colClasses] || colClasses[3]} ${gapClasses[gap as keyof typeof gapClasses] || gapClasses[6]} ${className}`}>
       {children}
     </div>
   );
