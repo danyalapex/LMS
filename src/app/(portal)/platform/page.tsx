@@ -99,7 +99,7 @@ export default async function PlatformPage() {
         {/* Subscription Plans */}
         <PremiumCard>
           <div className="flex items-center justify-between">
-            <PremiumSectionTitle>Subscription Plans (PKR)</PremiumSectionTitle>
+            <PremiumSectionTitle title="Subscription Plans (PKR)" />
             <form action={bootstrapPlatformPlansAction}>
               <PremiumButton size="sm" variant="outline" type="submit">
                 🔄 Sync Plans
@@ -146,7 +146,7 @@ export default async function PlatformPage() {
 
         {/* Quick Onboard School */}
         <PremiumCard className="border-2 border-green-200 bg-gradient-to-br from-green-50 to-emerald-50">
-          <PremiumSectionTitle>Quick Onboard School</PremiumSectionTitle>
+          <PremiumSectionTitle title="Quick Onboard School" />
           <form action={createSchoolAction} className="mt-6 space-y-4">
             <PremiumInput
               name="school_name"
@@ -238,7 +238,7 @@ export default async function PlatformPage() {
       <section className="grid gap-6 lg:grid-cols-2">
         {/* Subscription & Branding Control */}
         <PremiumCard className="border-2 border-purple-200">
-          <PremiumSectionTitle>Subscription & Access</PremiumSectionTitle>
+          <PremiumSectionTitle title="Subscription & Access" />
 
           {/* Subscription Assignment */}
           <form action={assignSchoolSubscriptionAction} className="mt-6 space-y-4 border-b border-slate-200 pb-6">
@@ -357,7 +357,7 @@ export default async function PlatformPage() {
 
         {/* Revenue & Collections */}
         <PremiumCard className="border-2 border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50">
-          <PremiumSectionTitle>Revenue & Collections</PremiumSectionTitle>
+          <PremiumSectionTitle title="Revenue & Collections" />
 
           <form action={recordPlatformPaymentAction} className="mt-6 space-y-4 border-b border-slate-200 pb-6">
             <select
@@ -442,7 +442,7 @@ export default async function PlatformPage() {
       {/* Schools Management Table */}
       <section>
         <PremiumCard>
-          <PremiumSectionTitle>Schools & Access Management</PremiumSectionTitle>
+          <PremiumSectionTitle title="Schools & Access Management" />
 
           <div className="mt-6 overflow-x-auto">
             <table className="w-full text-sm">
