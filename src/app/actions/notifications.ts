@@ -138,7 +138,8 @@ export async function sendBulkNotifications(params: {
 
 async function getOrganizationId(): Promise<string | null> {
   const supabase = await createSupabaseServerClient();
-  const { data: session } = await supabase.auth.getSession();
+  const { data } = await supabase.auth.getSession();
+  const session = data?.session ?? null;
 
   if (!session?.user?.id) {
     return null;
