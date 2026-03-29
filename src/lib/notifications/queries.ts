@@ -2,8 +2,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function getUnreadNotificationCount(): Promise<number> {
   const supabase = await createSupabaseServerClient();
-  const { data } = await supabase.auth.getSession();
-  const session = data?.session ?? null;
+  const { data: sessionData } = await supabase.auth.getSession();
+  const session = sessionData?.session ?? null;
 
   if (!session?.user?.id) {
     return 0;
@@ -24,8 +24,8 @@ export async function getUnreadNotificationCount(): Promise<number> {
 
 export async function getRecentNotifications(limit: number = 5) {
   const supabase = await createSupabaseServerClient();
-  const { data } = await supabase.auth.getSession();
-  const session = data?.session ?? null;
+  const { data: sessionData } = await supabase.auth.getSession();
+  const session = sessionData?.session ?? null;
 
   if (!session?.user?.id) {
     return [];
@@ -50,8 +50,8 @@ export async function getNotificationsByType(
   limit: number = 10,
 ) {
   const supabase = await createSupabaseServerClient();
-  const { data } = await supabase.auth.getSession();
-  const session = data?.session ?? null;
+  const { data: sessionData } = await supabase.auth.getSession();
+  const session = sessionData?.session ?? null;
 
   if (!session?.user?.id) {
     return [];
