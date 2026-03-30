@@ -34,7 +34,23 @@ export default async function ArkaliManagementPage({ searchParams }: { searchPar
     await requireRole(["platform_admin"]);
   }
 
-  const [overview, schools] = await Promise.all([getPlatformOverview(), listPlatformSchools()]);
+  let overview: any = null;
+  let schools: any[] = [];
+  try {
+    [overview, schools] = await Promise.all([getPlatformOverview(), listPlatformSchools()]);
+  } catch (err) {
+    // Server-side error (likely missing env or admin client issue) — log and render a friendly message
+    console.error("Failed to load Arkali management data:", err);
+
+    return (
+      <div className="p-6 space-y-6">
+        <PremiumSectionTitle title="Arkali Management Console" subtitle="Monitor schools, subscriptions and upcoming renewals." />
+        <PremiumCard>
+          <p className="text-red-600">Server error: failed to load platform data. Please check deployment environment variables (Supabase keys) and try again.</p>
+        </PremiumCard>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
