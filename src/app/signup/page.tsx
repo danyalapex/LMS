@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { signUpAction } from "@/app/actions/auth";
 import { redirect } from "next/navigation";
+import { PremiumInput, PremiumButton, PremiumSelect, PremiumSectionTitle } from "@/components/ui/premium-components";
 
 type SignUpPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -74,96 +75,31 @@ export default async function SignUpPage({ searchParams }: SignUpPageProps) {
                 </legend>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <input
-                    placeholder="First Name *"
-                    name="student_first_name"
-                    type="text"
-                    className="input col-span-1"
-                    required
-                  />
-                  <input
-                    placeholder="Last Name *"
-                    name="student_last_name"
-                    type="text"
-                    className="input col-span-1"
-                    required
-                  />
+                  <PremiumInput placeholder="First Name *" name="student_first_name" type="text" className="col-span-1" required />
+                  <PremiumInput placeholder="Last Name *" name="student_last_name" type="text" className="col-span-1" required />
                 </div>
 
-                <input
-                  placeholder="Email Address *"
-                  name="student_email"
-                  type="email"
-                  className="input"
-                  required
-                />
+                <PremiumInput placeholder="Email Address *" name="student_email" type="email" required />
 
-                <input
-                  placeholder="Phone Number"
-                  name="student_phone"
-                  type="tel"
-                  className="input"
-                />
+                <PremiumInput placeholder="Phone Number" name="student_phone" type="tel" />
 
                 <div className="grid grid-cols-2 gap-4">
-                  <input
-                    placeholder="Date of Birth *"
-                    name="student_dob"
-                    type="date"
-                    className="input col-span-1"
-                    required
-                  />
-                  <input
-                    placeholder="Father's Name *"
-                    name="student_father_name"
-                    type="text"
-                    className="input col-span-1"
-                    required
-                  />
+                  <PremiumInput placeholder="Date of Birth *" name="student_dob" type="date" className="col-span-1" required />
+                  <PremiumInput placeholder="Father's Name *" name="student_father_name" type="text" className="col-span-1" required />
                 </div>
 
-                <input
-                  placeholder="Mother's Name *"
-                  name="student_mother_name"
-                  type="text"
-                  className="input"
-                  required
-                />
+                <PremiumInput placeholder="Mother's Name *" name="student_mother_name" type="text" required />
 
-                <input
-                  placeholder="Address"
-                  name="student_address"
-                  type="text"
-                  className="input"
-                />
+                <PremiumInput placeholder="Address" name="student_address" type="text" />
 
                 <div className="grid grid-cols-2 gap-4">
-                  <input
-                    placeholder="City"
-                    name="student_city"
-                    type="text"
-                    className="input col-span-1"
-                  />
-                  <input
-                    placeholder="National ID (CNIC)"
-                    name="student_national_id"
-                    type="text"
-                    className="input col-span-1"
-                  />
+                  <PremiumInput placeholder="City" name="student_city" type="text" className="col-span-1" />
+                  <PremiumInput placeholder="National ID (CNIC)" name="student_national_id" type="text" className="col-span-1" />
                 </div>
 
                 <div className="relative">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Create Password *
-                  </label>
-                  <input
-                    placeholder="Min 6 characters"
-                    name="student_password"
-                    type="password"
-                    className="input"
-                    minLength={6}
-                    required
-                  />
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Create Password *</label>
+                  <PremiumInput placeholder="Min 6 characters" name="student_password" type="password" minLength={6} required />
                 </div>
               </fieldset>
             )}
@@ -176,110 +112,45 @@ export default async function SignUpPage({ searchParams }: SignUpPageProps) {
                 </legend>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <input
-                    placeholder="First Name *"
-                    name="guardian_first_name"
-                    type="text"
-                    className="input col-span-1"
-                    required
-                  />
-                  <input
-                    placeholder="Last Name *"
-                    name="guardian_last_name"
-                    type="text"
-                    className="input col-span-1"
-                    required
-                  />
+                  <PremiumInput placeholder="First Name *" name="guardian_first_name" type="text" className="col-span-1" required />
+                  <PremiumInput placeholder="Last Name *" name="guardian_last_name" type="text" className="col-span-1" required />
                 </div>
 
-                <input
-                  placeholder="Email Address *"
-                  name="guardian_email"
-                  type="email"
-                  className="input"
-                  required
-                />
+                <PremiumInput placeholder="Email Address *" name="guardian_email" type="email" required />
 
-                <input
-                  placeholder="Phone Number *"
-                  name="guardian_phone"
-                  type="tel"
-                  className="input"
-                  required
-                />
+                <PremiumInput placeholder="Phone Number *" name="guardian_phone" type="tel" required />
 
                 <div className="grid grid-cols-2 gap-4">
-                  <input
-                    placeholder="Date of Birth"
-                    name="guardian_dob"
-                    type="date"
-                    className="input col-span-1"
-                  />
-                  <select
+                  <PremiumInput placeholder="Date of Birth" name="guardian_dob" type="date" className="col-span-1" />
+                  <PremiumSelect
                     name="guardian_relation"
-                    className="input col-span-1"
+                    options={[
+                      { value: "Father", label: "Father" },
+                      { value: "Mother", label: "Mother" },
+                      { value: "Uncle", label: "Uncle" },
+                      { value: "Aunt", label: "Aunt" },
+                      { value: "Guardian", label: "Guardian" },
+                    ]}
+                    className="col-span-1"
                     required
-                  >
-                    <option value="">Relation to Student *</option>
-                    <option value="Father">Father</option>
-                    <option value="Mother">Mother</option>
-                    <option value="Uncle">Uncle</option>
-                    <option value="Aunt">Aunt</option>
-                    <option value="Guardian">Guardian</option>
-                  </select>
+                  />
                 </div>
 
-                <input
-                  placeholder="National ID (CNIC)"
-                  name="guardian_national_id"
-                  type="text"
-                  className="input"
-                />
+                <PremiumInput placeholder="National ID (CNIC)" name="guardian_national_id" type="text" />
 
-                <input
-                  placeholder="Address"
-                  name="guardian_address"
-                  type="text"
-                  className="input"
-                />
+                <PremiumInput placeholder="Address" name="guardian_address" type="text" />
 
                 <div className="grid grid-cols-2 gap-4">
-                  <input
-                    placeholder="City"
-                    name="guardian_city"
-                    type="text"
-                    className="input col-span-1"
-                  />
-                  <input
-                    placeholder="Occupation"
-                    name="guardian_occupation"
-                    type="text"
-                    className="input col-span-1"
-                  />
+                  <PremiumInput placeholder="City" name="guardian_city" type="text" className="col-span-1" />
+                  <PremiumInput placeholder="Occupation" name="guardian_occupation" type="text" className="col-span-1" />
                 </div>
 
                 {role === "both" ? (
-                  <input
-                    placeholder="Password (auto-linked to student)"
-                    name="guardian_password"
-                    type="password"
-                    className="input bg-slate-100 cursor-not-allowed"
-                    disabled
-                    value="auto-generated"
-                  />
+                  <PremiumInput placeholder="Password (auto-generated)" name="guardian_password" type="password" disabled value="auto-generated" />
                 ) : (
                   <div className="relative">
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Create Password *
-                    </label>
-                    <input
-                      placeholder="Min 6 characters"
-                      name="guardian_password"
-                      type="password"
-                      className="input"
-                      minLength={6}
-                      required
-                    />
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Create Password *</label>
+                    <PremiumInput placeholder="Min 6 characters" name="guardian_password" type="password" minLength={6} required />
                   </div>
                 )}
               </fieldset>
@@ -299,18 +170,8 @@ export default async function SignUpPage({ searchParams }: SignUpPageProps) {
             )}
 
             <div className="space-y-2">
-              <button
-                type="submit"
-                className="w-full rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 px-4 py-2.5 text-center font-semibold text-white transition-all hover:from-blue-700 hover:to-purple-700"
-              >
-                Create Account
-              </button>
-              <p className="text-center text-sm text-slate-600">
-                Have an account?{" "}
-                <Link href="/login" className="font-semibold text-blue-600 hover:text-blue-700">
-                  Sign In
-                </Link>
-              </p>
+              <PremiumButton type="submit" variant="primary" size="lg" className="w-full">Create Account</PremiumButton>
+              <p className="text-center text-sm text-slate-600">Have an account? <Link href="/login" className="font-semibold text-blue-600 hover:text-blue-700">Sign In</Link></p>
             </div>
           </form>
 

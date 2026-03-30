@@ -538,3 +538,103 @@ export async function recordPlatformPaymentAction(formData: FormData) {
 
   revalidatePath("/platform");
 }
+
+export async function processSubscriptionRequestAction(formData: FormData) {
+  await requireRole(["platform_admin"]);
+  const actor = await requireIdentity();
+  const admin = createSupabaseAdminClient();
+
+  const auditLogId = String(formData.get("audit_log_id") ?? "").trim();
+  const approve = String(formData.get("approve") ?? "true").trim() === "true";
+
+  if (!auditLogId) throw new Error("audit_log_id is required");
+
+  const { data: logRow, error: logError } = await admin
+    .from("audit_logs")
+    .select("id, organization_id, metadata")
+    .eq("id", auditLogId)
+    .maybeSingle();
+
+  if (logError || !logRow) throw new Error(logError?.message ?? "Audit log not found");
+
+  const metadata = (logRow.metadata as Record<string, any>) ?? {};
+  const requestedPlan = String(metadata.requested_plan ?? "").trim();
+  const requestedStatus = String(metadata.requested_status ?? "active").trim();
+  const seats = Number(metadata.requested_seats ?? 500);
+
+  if (!requestedPlan) {
+    throw new Error("Requested plan not found in audit log metadata");
+  }
+
+  if (!approve) {
+    // insert audit log for rejection
+    await createAuditLog({
+      organizationId: logRow.organization_id,
+      actorUserId: actor.appUserId,
+      action: "subscription_request_rejected",
+      entity: "audit_logs",
+      entityId: auditLogId,
+      metadata: { requested_plan: requestedPlan },
+    });
+    revalidatePath("/platform");
+    return;
+  }
+
+  // Find plan
+  const { data: plan, error: planError } = await admin
+    .from("subscription_plans")
+    .select("id, monthly_price_pkr, includes_personal_branding")
+    .eq("code", requestedPlan)
+    .eq("active", true)
+    .maybeSingle();
+
+  if (planError || !plan) {
+    throw new Error(planError?.message ?? "Plan not found");
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  const { error: closeError } = await admin
+    .from("organization_subscriptions")
+    .update({ status: "cancelled", ends_on: today })
+    .eq("organization_id", logRow.organization_id)
+    .in("status", ["active", "trial", "past_due", "suspended"]);
+
+  if (closeError) throw new Error(closeError.message);
+
+  const { data: created, error: createError } = await admin
+    .from("organization_subscriptions")
+    .insert({
+      organization_id: logRow.organization_id,
+      plan_id: plan.id,
+      status: requestedStatus,
+      amount_pkr: Number(plan.monthly_price_pkr),
+      starts_on: today,
+      seats: Number.isNaN(seats) ? 500 : seats,
+      custom_branding_enabled: plan.includes_personal_branding,
+    })
+    .select("id")
+    .single();
+
+  if (createError || !created) throw new Error(createError?.message ?? "Failed to create subscription");
+
+  const nextOrgStatus = requestedStatus === "suspended" ? "suspended" : requestedStatus === "trial" ? "trial" : "active";
+
+  const { error: orgUpdateError } = await admin
+    .from("organizations")
+    .update({ status: nextOrgStatus })
+    .eq("id", logRow.organization_id);
+
+  if (orgUpdateError) throw new Error(orgUpdateError.message);
+
+  await createAuditLog({
+    organizationId: logRow.organization_id,
+    actorUserId: actor.appUserId,
+    action: "platform_school_subscription_changed",
+    entity: "organization_subscriptions",
+    entityId: created.id,
+    metadata: { plan_code: requestedPlan, status: requestedStatus, seats: Number.isNaN(seats) ? 500 : seats },
+  });
+
+  revalidatePath("/platform");
+}

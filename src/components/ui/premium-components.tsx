@@ -36,6 +36,11 @@ export function PremiumButton({
   return (
     <button
       className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
+      style={
+        variant === "primary"
+          ? { ...(props as any).style, background: "linear-gradient(90deg, var(--brand-primary), var(--brand-accent))", color: "white" }
+          : (props as any).style
+      }
       {...props}
     >
       {children}

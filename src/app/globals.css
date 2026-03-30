@@ -1,12 +1,18 @@
 @import "tailwindcss";
 
 :root {
+  /* Brandable colors (overridden per-organization via layout.tsx) */
+  --brand-primary: #4f46e5;
+  --brand-secondary: #0f172a;
+  --brand-accent: #16a34a;
+
+  /* Semantic aliases used across the app */
   --background: #eef2df;
   --foreground: #101621;
   --muted: #445069;
   --panel: #f8f9f2;
   --border: #d7ddc2;
-  --accent: #146356;
+  --accent: var(--brand-accent);
   --accent-soft: #d3f4e1;
   --warning: #a9651a;
   --warning-soft: #fae7d1;
@@ -21,9 +27,9 @@
 
 body {
   background:
-    radial-gradient(circle at 15% 10%, #f8f9f2, transparent 45%),
-    radial-gradient(circle at 80% 0%, #d3f4e1, transparent 35%),
-    linear-gradient(180deg, #eef2df 0%, #e7ecd7 55%, #e3ead6 100%);
+    radial-gradient(circle at 15% 10%, rgba(255,255,255,0.7), transparent 45%),
+    radial-gradient(circle at 80% 0%, rgba(0,0,0,0.02), transparent 35%),
+    linear-gradient(180deg, var(--background) 0%, color-mix(in srgb, var(--brand-primary) 10%, var(--background) 90%) 55%, color-mix(in srgb, var(--brand-secondary) 6%, var(--background) 94%) 100%);
   color: var(--foreground);
   font-family: var(--font-space-grotesk), "Segoe UI", sans-serif;
 }

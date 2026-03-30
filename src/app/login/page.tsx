@@ -1,5 +1,10 @@
 ﻿import Link from "next/link";
 import { signInAction, signUpAction } from "@/app/actions/auth";
+import {
+  PremiumButton,
+  PremiumInput,
+  PremiumSelect,
+} from "@/components/ui/premium-components";
 
 type LoginPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -54,69 +59,28 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           <div className="mt-5 space-y-5">
             <form action={signInAction} className="space-y-3">
               <p className="text-sm font-semibold text-slate-700">Sign in</p>
-              <input
-                name="email"
-                type="email"
-                placeholder="you@school.edu"
-                className="w-full rounded-xl border border-[color:var(--border)] bg-white px-3 py-2.5 text-sm"
-                required
-              />
-              <input
-                name="password"
-                type="password"
-                placeholder="Password"
-                className="w-full rounded-xl border border-[color:var(--border)] bg-white px-3 py-2.5 text-sm"
-                required
-              />
-              <button
-                type="submit"
-                className="w-full rounded-xl bg-[color:var(--accent)] px-4 py-2.5 text-sm font-semibold text-white"
-              >
-                Sign In
-              </button>
+              <PremiumInput name="email" type="email" placeholder="you@school.edu" />
+              <PremiumInput name="password" type="password" placeholder="Password" />
+              <PremiumButton type="submit" variant="primary" size="md" className="w-full">Sign In</PremiumButton>
             </form>
 
             <form action={signUpAction} className="space-y-3 rounded-xl border border-[color:var(--border)] bg-white/70 p-4">
               <p className="text-sm font-semibold text-slate-700">Create account</p>
-              <input
-                name="full_name"
-                type="text"
-                placeholder="Full name"
-                className="w-full rounded-xl border border-[color:var(--border)] bg-white px-3 py-2.5 text-sm"
-                required
-              />
-              <input
-                name="email"
-                type="email"
-                placeholder="Email"
-                className="w-full rounded-xl border border-[color:var(--border)] bg-white px-3 py-2.5 text-sm"
-                required
-              />
-              <input
-                name="password"
-                type="password"
-                minLength={8}
-                placeholder="Password (8+ chars)"
-                className="w-full rounded-xl border border-[color:var(--border)] bg-white px-3 py-2.5 text-sm"
-                required
-              />
-              <select
+              <PremiumInput name="full_name" type="text" placeholder="Full name" required />
+              <PremiumInput name="email" type="email" placeholder="Email" required />
+              <PremiumInput name="password" type="password" minLength={8} placeholder="Password (8+ chars)" required />
+              <PremiumSelect
                 name="role"
-                className="w-full rounded-xl border border-[color:var(--border)] bg-white px-3 py-2.5 text-sm"
+                options={[
+                  { value: "student", label: "Student" },
+                  { value: "teacher", label: "Teacher" },
+                  { value: "admin", label: "Administrator" },
+                  { value: "guardian", label: "Guardian" },
+                  { value: "finance", label: "Finance" },
+                ]}
                 defaultValue="student"
-              >
-                <option value="student">Student</option>
-                <option value="teacher">Teacher</option>
-                <option value="admin">Administrator</option>
-                <option value="guardian">Guardian</option>
-                <option value="finance">Finance</option>
-              </select>
-              <button
-                type="submit"
-                className="w-full rounded-xl border border-[color:var(--border)] bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white"
-              >
-                Create Account
-              </button>
+              />
+              <PremiumButton type="submit" variant="secondary" size="md" className="w-full">Create Account</PremiumButton>
             </form>
           </div>
 

@@ -5,6 +5,7 @@ import {
   recordPlatformPaymentAction,
   saveSchoolBrandingAction,
   updateSchoolStatusAction,
+  processSubscriptionRequestAction,
 } from "@/app/actions/platform";
 import {
   PremiumButton,
@@ -23,6 +24,7 @@ import {
   listPlatformSchools,
   listSubscriptionPlans,
 } from "@/lib/platform/queries";
+import { listAuditLogs } from "@/lib/lms/queries";
 
 function formatPkr(value: number) {
   return new Intl.NumberFormat("en-PK", {
@@ -41,6 +43,9 @@ export default async function PlatformPage() {
     listPlatformSchools(),
     listPlatformPayments(30),
   ]);
+
+  const auditLogs = await listAuditLogs(50);
+  const subscriptionRequests = auditLogs.filter((a) => a.action === "subscription_request");
 
   return (
     <div className="space-y-8">
@@ -231,6 +236,40 @@ export default async function PlatformPage() {
               ✨ Create School + Admin Access
             </PremiumButton>
           </form>
+        </PremiumCard>
+      </section>
+
+      {/* Pending Subscription Requests */}
+      <section>
+        <PremiumCard className="border-2 border-indigo-200">
+          <PremiumSectionTitle title="Pending Subscription Requests" />
+          <div className="mt-4 space-y-3">
+            {subscriptionRequests.length === 0 ? (
+              <PremiumAlert type="info" message="No pending subscription requests." />
+            ) : (
+              subscriptionRequests.map((req) => (
+                <div key={req.id} className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="font-semibold text-slate-900">{req.actor_name}</p>
+                    <p className="text-sm text-slate-500">Requested plan: {(req.metadata as any).requested_plan}</p>
+                    <p className="text-xs text-slate-400">{new Date(req.created_at).toLocaleString()}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <form action={processSubscriptionRequestAction} method="post">
+                      <input type="hidden" name="audit_log_id" value={req.id} />
+                      <input type="hidden" name="approve" value="true" />
+                      <PremiumButton type="submit" size="sm" variant="primary">Approve</PremiumButton>
+                    </form>
+                    <form action={processSubscriptionRequestAction} method="post">
+                      <input type="hidden" name="audit_log_id" value={req.id} />
+                      <input type="hidden" name="approve" value="false" />
+                      <PremiumButton type="submit" size="sm" variant="outline">Reject</PremiumButton>
+                    </form>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </PremiumCard>
       </section>
 
