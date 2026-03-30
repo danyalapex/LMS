@@ -9,8 +9,8 @@ type Params = { params: { id: string }; searchParams?: Record<string, string | s
 
 export default async function OrganizationPage({ params, searchParams }: Params) {
   const secretKey = process.env.ARKALI_ACCESS_KEY ?? "";
-  const hdrs = headers();
-  const cks = cookies();
+  const hdrs = await headers();
+  const cks = await cookies();
 
   const headerKey = hdrs.get("x-arkali-key") ?? null;
   const cookieKey = cks.get("arkali_key")?.value ?? null;

@@ -7,8 +7,8 @@ import Link from "next/link";
 
 export default async function ArkaliManagementPage({ searchParams }: { searchParams?: Record<string, string | string[]> }) {
   const secretKey = process.env.ARKALI_ACCESS_KEY ?? "";
-  const hdrs = headers();
-  const cks = cookies();
+  const hdrs = await headers();
+  const cks = await cookies();
 
   const headerKey = hdrs.get("x-arkali-key") ?? null;
   const cookieKey = cks.get("arkali_key")?.value ?? null;
