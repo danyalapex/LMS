@@ -1,8 +1,10 @@
 import { headers, cookies } from "next/headers";
 import crypto from "crypto";
 import { PremiumCard, PremiumGrid, PremiumSectionTitle, PremiumButton } from "@/components/ui/premium-components";
-import { requireRole } from "@/lib/auth";
-import { getPlatformOverview, listPlatformSchools } from "@/lib/platform/queries";
+// `requireRole` and platform queries are imported dynamically below to avoid
+// throwing on module import when environment variables are missing in the
+// deployment environment. Dynamic import ensures errors are caught and a
+// friendly message is rendered instead of crashing the server component.
 import Link from "next/link";
 
 export default async function ArkaliManagementPage({ searchParams }: { searchParams?: Record<string, string | string[]> }) {
@@ -31,12 +33,26 @@ export default async function ArkaliManagementPage({ searchParams }: { searchPar
   const hasBypass = secretKey && (safeEqual(secretKey, headerKey) || safeEqual(secretKey, cookieKey));
 
   if (!hasBypass) {
-    await requireRole(["platform_admin"]);
+    try {
+      const { requireRole } = await import("@/lib/auth");
+      await requireRole(["platform_admin"]);
+    } catch (err) {
+      console.error("Auth check failed:", err);
+      return (
+        <div className="p-6 space-y-6">
+          <PremiumSectionTitle title="Arkali Management Console" subtitle="Monitor schools, subscriptions and upcoming renewals." />
+          <PremiumCard>
+            <p className="text-red-600">Server error: authentication/authorization failed. Please check deployment environment variables and try again.</p>
+          </PremiumCard>
+        </div>
+      );
+    }
   }
 
   let overview: any = null;
   let schools: any[] = [];
   try {
+    const { getPlatformOverview, listPlatformSchools } = await import("@/lib/platform/queries");
     [overview, schools] = await Promise.all([getPlatformOverview(), listPlatformSchools()]);
   } catch (err) {
     // Server-side error (likely missing env or admin client issue) — log and render a friendly message
