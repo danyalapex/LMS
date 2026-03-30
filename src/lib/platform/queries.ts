@@ -111,19 +111,16 @@ export async function listSubscriptionPlans(): Promise<SubscriptionPlanItem[]> {
 
 export async function listPlatformSchools(): Promise<PlatformSchoolItem[]> {
   const admin = createSupabaseAdminClient();
-  const [organizationsRes, subscriptionsRes, brandingRes, usersRes] = await Promise.all([
+  // Fetch organizations, branding and users in parallel. The subscriptions
+  // query may include new Stripe-related columns which might not exist yet in
+  // some DB instances (staging/prod without migration). Try the extended
+  // select first, and fall back to a base select if the extended query fails.
+  const [organizationsRes, brandingRes, usersRes] = await Promise.all([
     admin
       .from("organizations")
       .select("id, code, name, contact_email, status, timezone, created_at")
       .order("created_at", { ascending: false })
       .limit(1000),
-    admin
-      .from("organization_subscriptions")
-      .select(
-        "id, organization_id, status, amount_pkr, starts_on, ends_on, seats, custom_branding_enabled, stripe_customer_id, stripe_subscription_id, stripe_price_id, next_billing_date, created_at, subscription_plans!organization_subscriptions_plan_id_fkey(code,name)",
-      )
-      .order("created_at", { ascending: false })
-      .limit(5000),
     admin
       .from("organization_branding")
       .select(
@@ -134,9 +131,38 @@ export async function listPlatformSchools(): Promise<PlatformSchoolItem[]> {
   ]);
 
   if (organizationsRes.error) throw new Error(organizationsRes.error.message);
-  if (subscriptionsRes.error) throw new Error(subscriptionsRes.error.message);
   if (brandingRes.error) throw new Error(brandingRes.error.message);
   if (usersRes.error) throw new Error(usersRes.error.message);
+
+  // Attempt subscriptions query with Stripe fields first.
+  const subscriptionsExtendedSelect =
+    "id, organization_id, status, amount_pkr, starts_on, ends_on, seats, custom_branding_enabled, stripe_customer_id, stripe_subscription_id, stripe_price_id, next_billing_date, created_at, subscription_plans!organization_subscriptions_plan_id_fkey(code,name)";
+
+  const subscriptionsBaseSelect =
+    "id, organization_id, status, amount_pkr, starts_on, ends_on, seats, custom_branding_enabled, created_at, subscription_plans!organization_subscriptions_plan_id_fkey(code,name)";
+
+  let subscriptionsRes = await admin
+    .from("organization_subscriptions")
+    .select(subscriptionsExtendedSelect)
+    .order("created_at", { ascending: false })
+    .limit(5000);
+
+  if (subscriptionsRes.error) {
+    // If extended select fails (likely missing columns), try the base select
+    // without the Stripe-related fields so the platform can continue to
+    // operate until the migration is applied.
+    const fallback = await admin
+      .from("organization_subscriptions")
+      .select(subscriptionsBaseSelect)
+      .order("created_at", { ascending: false })
+      .limit(5000);
+
+    if (fallback.error) {
+      throw new Error(fallback.error.message);
+    }
+
+    subscriptionsRes = fallback;
+  }
 
   const userCountByOrg = new Map<string, number>();
   for (const row of usersRes.data ?? []) {
