@@ -28,7 +28,17 @@ export default async function SubscriptionPage() {
   const currentPlanDetails = plans.find((pp) => pp.code === plan?.code) ?? null;
   const payments = await getSubscriptionPayments(actor.organizationId);
   const endsOn = currentSub?.ends_on ?? null;
-  const daysRemaining = endsOn ? Math.ceil((new Date(endsOn).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
+  let daysRemaining: number | null = null;
+  let expired = false;
+  if (endsOn) {
+    const diff = Math.ceil((new Date(endsOn).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    if (diff <= 0) {
+      daysRemaining = 0;
+      expired = true;
+    } else {
+      daysRemaining = diff;
+    }
+  }
 
   return (
     <div className="p-6">
@@ -61,7 +71,13 @@ export default async function SubscriptionPage() {
         </PremiumCard>
       </div>
 
-      {daysRemaining !== null && daysRemaining <= 7 && (
+      {daysRemaining !== null && expired && (
+        <div className="mb-6">
+          <PremiumAlert type="error" message={`Your subscription has expired. Please renew to restore access.`} />
+        </div>
+      )}
+
+      {daysRemaining !== null && !expired && daysRemaining <= 7 && (
         <div className="mb-6">
           <PremiumAlert type="warning" message={`Your subscription renews in ${daysRemaining} day(s). Please ensure payment is processed.`} />
         </div>

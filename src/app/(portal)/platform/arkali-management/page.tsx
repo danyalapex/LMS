@@ -1,4 +1,5 @@
 import { headers, cookies } from "next/headers";
+import crypto from "crypto";
 import { PremiumCard, PremiumGrid, PremiumSectionTitle, PremiumButton } from "@/components/ui/premium-components";
 import { requireRole } from "@/lib/auth";
 import { getPlatformOverview, listPlatformSchools } from "@/lib/platform/queries";
@@ -9,16 +10,25 @@ export default async function ArkaliManagementPage({ searchParams }: { searchPar
   const hdrs = headers();
   const cks = cookies();
 
-  const paramKey = (() => {
-    const v = (searchParams as any)?.arkali_key;
-    if (Array.isArray(v)) return v[0];
-    return v ?? null;
-  })();
-
   const headerKey = hdrs.get("x-arkali-key") ?? null;
   const cookieKey = cks.get("arkali_key")?.value ?? null;
+  function safeEqual(a?: string | null, b?: string | null) {
+    if (!a || !b) return false;
+    try {
+      const ab = Buffer.from(String(a));
+      const bb = Buffer.from(String(b));
+      const len = Math.max(ab.length, bb.length);
+      const aBuf = Buffer.alloc(len);
+      const bBuf = Buffer.alloc(len);
+      ab.copy(aBuf);
+      bb.copy(bBuf);
+      return crypto.timingSafeEqual(aBuf, bBuf);
+    } catch {
+      return false;
+    }
+  }
 
-  const hasBypass = secretKey && (paramKey === secretKey || headerKey === secretKey || cookieKey === secretKey);
+  const hasBypass = secretKey && (safeEqual(secretKey, headerKey) || safeEqual(secretKey, cookieKey));
 
   if (!hasBypass) {
     await requireRole(["platform_admin"]);

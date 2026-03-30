@@ -6,7 +6,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export async function signInArkaliAction(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim();
-  const password = String(formData.get("password") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
 
   if (!email || !password) {
     redirect(`/arkali-login?error=missing_credentials`);
@@ -16,7 +16,8 @@ export async function signInArkaliAction(formData: FormData) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error || !data.user) {
-    redirect(`/arkali-login?error=${encodeURIComponent(error?.message ?? "invalid_login")}`);
+    console.error("Arkali sign-in error:", error);
+    redirect(`/arkali-login?error=${encodeURIComponent("authentication_failed")}`);
   }
 
   // Allowlist checks (env vars)

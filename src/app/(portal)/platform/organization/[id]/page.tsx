@@ -1,4 +1,5 @@
 import { headers, cookies } from "next/headers";
+import crypto from "crypto";
 import { PremiumCard, PremiumSectionTitle, PremiumButton } from "@/components/ui/premium-components";
 import { requireRole } from "@/lib/auth";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -11,16 +12,26 @@ export default async function OrganizationPage({ params, searchParams }: Params)
   const hdrs = headers();
   const cks = cookies();
 
-  const paramKey = (() => {
-    const v = (searchParams as any)?.arkali_key;
-    if (Array.isArray(v)) return v[0];
-    return v ?? null;
-  })();
-
   const headerKey = hdrs.get("x-arkali-key") ?? null;
   const cookieKey = cks.get("arkali_key")?.value ?? null;
 
-  const hasBypass = secretKey && (paramKey === secretKey || headerKey === secretKey || cookieKey === secretKey);
+  function safeEqual(a?: string | null, b?: string | null) {
+    if (!a || !b) return false;
+    try {
+      const ab = Buffer.from(String(a));
+      const bb = Buffer.from(String(b));
+      const len = Math.max(ab.length, bb.length);
+      const aBuf = Buffer.alloc(len);
+      const bBuf = Buffer.alloc(len);
+      ab.copy(aBuf);
+      bb.copy(bBuf);
+      return crypto.timingSafeEqual(aBuf, bBuf);
+    } catch {
+      return false;
+    }
+  }
+
+  const hasBypass = secretKey && (safeEqual(secretKey, headerKey) || safeEqual(secretKey, cookieKey));
 
   if (!hasBypass) {
     await requireRole(["platform_admin"]);
@@ -30,7 +41,7 @@ export default async function OrganizationPage({ params, searchParams }: Params)
 
   const admin = createSupabaseAdminClient();
 
-  const [{ data: org }, { data: subs }, { data: payments }] = await Promise.all([
+  const [orgRes, subsRes, paymentsRes] = await Promise.all([
     admin.from("organizations").select("id,name,code,contact_email,status,timezone").eq("id", id).maybeSingle(),
     admin
       .from("organization_subscriptions")
@@ -46,9 +57,25 @@ export default async function OrganizationPage({ params, searchParams }: Params)
       .limit(50),
   ]);
 
-  const organization = org ?? null;
-  const subscriptions = subs ?? [];
-  const paymentRows = payments ?? [];
+  if (orgRes.error || subsRes.error || paymentsRes.error) {
+    console.error("Supabase query errors for organization page:", {
+      orgError: orgRes.error ?? null,
+      subsError: subsRes.error ?? null,
+      paymentsError: paymentsRes.error ?? null,
+    });
+
+    return (
+      <div className="p-6">
+        <PremiumCard>
+          <p className="text-red-600">Failed to load organization data. Please try again later.</p>
+        </PremiumCard>
+      </div>
+    );
+  }
+
+  const organization = orgRes.data ?? null;
+  const subscriptions = subsRes.data ?? [];
+  const paymentRows = paymentsRes.data ?? [];
 
   return (
     <div className="p-6 space-y-6">

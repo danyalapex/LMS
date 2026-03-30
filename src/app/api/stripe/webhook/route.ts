@@ -60,7 +60,19 @@ export async function POST(req: Request) {
       const customerId = typeof session.customer === "string" ? session.customer : null;
       if (customerId && organizationId) {
         await admin.from("organizations").update({ stripe_customer_id: customerId }).eq("id", organizationId);
-        await admin.from("organization_subscriptions").update({ stripe_customer_id: customerId }).eq("organization_id", organizationId);
+
+        // Only update the most recent subscription record for this organization
+        const { data: latestSub } = await admin
+          .from("organization_subscriptions")
+          .select("id")
+          .eq("organization_id", organizationId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (latestSub?.id) {
+          await admin.from("organization_subscriptions").update({ stripe_customer_id: customerId }).eq("id", latestSub.id);
+        }
       }
 
       // Reactivate past_due if necessary
@@ -122,7 +134,18 @@ export async function POST(req: Request) {
           .limit(1)
           .maybeSingle();
 
-        const periodEnd = (invoice.lines?.data?.[0]?.period?.end) as number | undefined;
+        // Prefer invoice.period_end if present, otherwise try the first line item period end.
+        // As a last resort, attempt to fetch the subscription and use its current_period_end.
+        let periodEnd = (invoice.period_end as number | undefined) ?? (invoice.lines?.data?.[0]?.period?.end as number | undefined);
+
+        if (!periodEnd && invoiceSubscription) {
+          try {
+            const sub = await stripe.subscriptions.retrieve(invoiceSubscription as string);
+            periodEnd = sub.current_period_end ?? undefined;
+          } catch (e) {
+            // ignore stripe retrieval failures and fall back
+          }
+        }
         if (recentSub?.id) {
           await admin
             .from("organization_subscriptions")
@@ -163,13 +186,14 @@ export async function POST(req: Request) {
           .maybeSingle();
 
         if (recentSub?.id) {
+          const mappedStatus = subscription.status ?? "active";
           await admin
             .from("organization_subscriptions")
             .update({
               stripe_subscription_id: subId,
               stripe_price_id: priceId,
               next_billing_date: currentPeriodEnd ? toDateStringFromUnix(currentPeriodEnd) : null,
-              status: "active",
+              status: mappedStatus,
             })
             .eq("id", recentSub.id);
         }

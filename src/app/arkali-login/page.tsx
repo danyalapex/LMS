@@ -12,8 +12,12 @@ export default async function ArkaliLoginPage() {
 
           <div className="mt-6">
             <form action={signInArkaliAction} className="space-y-3">
-              <PremiumInput name="email" type="email" placeholder="you@arkali.com" />
-              <PremiumInput name="password" type="password" placeholder="Password" />
+              <label htmlFor="arkali-email" className="sr-only">Email</label>
+              <PremiumInput id="arkali-email" name="email" type="email" placeholder="you@arkali.com" autoComplete="email" />
+
+              <label htmlFor="arkali-password" className="sr-only">Password</label>
+              <PremiumInput id="arkali-password" name="password" type="password" placeholder="Password" autoComplete="current-password" />
+
               <PremiumButton type="submit" variant="primary" size="md" className="w-full">Sign in to Arkali</PremiumButton>
             </form>
           </div>

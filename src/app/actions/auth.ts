@@ -145,14 +145,30 @@ export async function signInAction(formData: FormData) {
         redirect(`/login?error=${encodeURIComponent("not_authorized")}`);
       }
     } catch (err) {
+      // If this is a navigation redirect signal from Next, re-throw it so the framework handles it.
+      if (typeof err === "object" && err !== null && "digest" in err && typeof (err as any).digest === "string" && (err as any).digest.startsWith("NEXT_REDIRECT")) {
+        throw err;
+      }
+
       await supabase.auth.signOut();
       redirect(`/login?error=${encodeURIComponent("authorization_check_failed")}`);
     }
   }
 
   revalidatePath("/", "layout");
+  function getSafeRedirectUrl(to: string | null | undefined) {
+    if (!to) return "/";
+    try {
+      // Only allow relative paths that start with '/'. Disallow full origins.
+      if (to.startsWith("/")) return to;
+      return "/";
+    } catch {
+      return "/";
+    }
+  }
+
   if (redirectTo) {
-    redirect(redirectTo);
+    redirect(getSafeRedirectUrl(redirectTo));
   }
 
   redirect("/");
