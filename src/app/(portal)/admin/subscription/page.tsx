@@ -1,10 +1,11 @@
-import { PremiumButton, PremiumCard, PremiumGrid, PremiumSectionTitle } from "@/components/ui/premium-components";
+import { PremiumButton, PremiumCard, PremiumGrid, PremiumSectionTitle, PremiumAlert } from "@/components/ui/premium-components";
 import StripePayButton from "@/components/stripe-pay-button";
 import { listSubscriptionPlans } from "@/lib/platform/queries";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireRole, requireIdentity } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import React from "react";
+import { getSubscriptionPayments } from "@/app/actions/subscriptions";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,9 @@ export default async function SubscriptionPage() {
 
   const plan = currentSub?.subscription_plans ? (Array.isArray(currentSub.subscription_plans) ? currentSub.subscription_plans[0] : currentSub.subscription_plans) : null;
   const currentPlanDetails = plans.find((pp) => pp.code === plan?.code) ?? null;
+  const payments = await getSubscriptionPayments(actor.organizationId);
+  const endsOn = currentSub?.ends_on ?? null;
+  const daysRemaining = endsOn ? Math.ceil((new Date(endsOn).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
 
   return (
     <div className="p-6">
@@ -57,6 +61,12 @@ export default async function SubscriptionPage() {
         </PremiumCard>
       </div>
 
+      {daysRemaining !== null && daysRemaining <= 7 && (
+        <div className="mb-6">
+          <PremiumAlert type="warning" message={`Your subscription renews in ${daysRemaining} day(s). Please ensure payment is processed.`} />
+        </div>
+      )}
+
       <h4 className="mb-3 text-lg font-semibold">Available Plans</h4>
       <PremiumGrid columns={3} gap={6}>
         {plans.map((p) => (
@@ -79,6 +89,19 @@ export default async function SubscriptionPage() {
           </PremiumCard>
         ))}
       </PremiumGrid>
+
+      <div className="mt-6">
+        <h4 className="mb-3 text-lg font-semibold">Recent Payments</h4>
+        {payments.length === 0 ? (
+          <p className="text-sm text-slate-500">No recent payments.</p>
+        ) : (
+          <div className="space-y-2">
+            {payments.map((p: any) => (
+              <div key={p.id} className="text-sm text-slate-700">{p.payment_date} — PKR {p.amount_pkr} — {p.status}</div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

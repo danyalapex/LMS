@@ -45,6 +45,10 @@ export type SchoolSubscriptionItem = {
   custom_branding_enabled: boolean;
   plan_code: string;
   plan_name: string;
+  stripe_customer_id?: string | null;
+  stripe_subscription_id?: string | null;
+  stripe_price_id?: string | null;
+  next_billing_date?: string | null;
 };
 
 export type PlatformSchoolItem = {
@@ -116,7 +120,7 @@ export async function listPlatformSchools(): Promise<PlatformSchoolItem[]> {
     admin
       .from("organization_subscriptions")
       .select(
-        "id, organization_id, status, amount_pkr, starts_on, ends_on, seats, custom_branding_enabled, created_at, subscription_plans!organization_subscriptions_plan_id_fkey(code,name)",
+        "id, organization_id, status, amount_pkr, starts_on, ends_on, seats, custom_branding_enabled, stripe_customer_id, stripe_subscription_id, stripe_price_id, next_billing_date, created_at, subscription_plans!organization_subscriptions_plan_id_fkey(code,name)",
       )
       .order("created_at", { ascending: false })
       .limit(5000),
@@ -159,6 +163,10 @@ export async function listPlatformSchools(): Promise<PlatformSchoolItem[]> {
       custom_branding_enabled: row.custom_branding_enabled,
       plan_code: plan?.code ?? "UNKNOWN",
       plan_name: plan?.name ?? "Unknown Plan",
+      stripe_customer_id: row.stripe_customer_id ?? null,
+      stripe_subscription_id: row.stripe_subscription_id ?? null,
+      stripe_price_id: row.stripe_price_id ?? null,
+      next_billing_date: row.next_billing_date ?? null,
     });
   }
 

@@ -13,6 +13,11 @@ export const navigationByRole: Record<UserRole, NavigationItem[]> = {
       label: "Platform Hub",
       description: "Schools, subscriptions, and platform revenue.",
     },
+    {
+      href: "/platform/arkali-management",
+      label: "Arkali Console",
+      description: "Arkali Solutions subscription & revenue console.",
+    },
   ],
   admin: [
     {
