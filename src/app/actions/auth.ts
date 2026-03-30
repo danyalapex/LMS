@@ -159,8 +159,17 @@ export async function signInAction(formData: FormData) {
   function getSafeRedirectUrl(to: string | null | undefined) {
     if (!to) return "/";
     try {
-      // Only allow relative paths that start with '/'. Disallow full origins.
-      if (to.startsWith("/")) return to;
+      // Only allow a single-leading-slash relative path and reject protocol-relative
+      // or backslash-prefixed values (e.g. "//evil.com" or "/\\evil"). Also reject any
+      // value containing a scheme delimiter like '://'.
+      if (
+        to.length >= 1 &&
+        to[0] === "/" &&
+        (to.length === 1 || (to[1] !== "/" && to[1] !== "\\")) &&
+        !to.includes("://")
+      ) {
+        return to;
+      }
       return "/";
     } catch {
       return "/";

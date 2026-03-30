@@ -4,7 +4,11 @@
  * Usage (example):
  *
  * SUPABASE_URL=https://your-project.supabase.co SUPABASE_SERVICE_ROLE_KEY=sb_... \
- * node scripts/create-arkali-admin.js --email syedalihasnat929@gmail.com --password 'SuCe)7192' --first-name Syed --last-name "Ali Hasnat"
+ * node scripts/create-arkali-admin.js --email you@example.com --password '<your-secure-password>' --first-name "First" --last-name "Last"
+ *
+ * Notes:
+ * - Replace `<your-secure-password>` with a strong, unique password (do not reuse passwords).
+ * - This example shows a placeholder only — do NOT copy real credentials into source files or examples.
  *
  * The script will:
  * - create an Auth user via Supabase Admin API
@@ -20,7 +24,7 @@ function parseArg(name) {
   const i = argv.findIndex((a) => a === `--${name}` || a.startsWith(`--${name}=`));
   if (i === -1) return null;
   const a = argv[i];
-  if (a.includes('=')) return a.split('=')[1];
+  if (a.includes('=')) return a.substring(a.indexOf('=') + 1);
   return argv[i + 1] ?? null;
 }
 
@@ -32,7 +36,7 @@ const orgIdArg = parseArg('org-id') || null;
 const orgName = parseArg('org-name') || 'Arkali Solutions Academy';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY;
 
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
   console.error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables.');
@@ -85,7 +89,16 @@ async function findOrCreateOrg() {
     body: JSON.stringify({ name: orgName, timezone: 'Asia/Karachi' }),
   });
   if (!createRes.ok) throw new Error(`Failed to create organization: ${createRes.status} ${JSON.stringify(createRes.data)}`);
-  return createRes.data[0].id;
+  if (!createRes || !createRes.data) {
+    throw new Error(`Failed to create organization: empty response ${createRes?.status} ${JSON.stringify(createRes?.data)}`);
+  }
+  if (Array.isArray(createRes.data) && createRes.data.length > 0 && createRes.data[0].id) {
+    return createRes.data[0].id;
+  }
+  if (typeof createRes.data === 'object' && createRes.data.id) {
+    return createRes.data.id;
+  }
+  throw new Error(`Failed to create organization: unexpected response shape ${JSON.stringify(createRes.data)}`);
 }
 
 async function findOrCreateAppUser(authUserId, orgId) {
@@ -105,7 +118,16 @@ async function findOrCreateAppUser(authUserId, orgId) {
 
   const createRes = await fetchJson(restUrl, { method: 'POST', headers: { ...headers, Prefer: 'return=representation' }, body: JSON.stringify(body) });
   if (!createRes.ok) throw new Error(`Failed to create app user: ${createRes.status} ${JSON.stringify(createRes.data)}`);
-  return createRes.data[0].id;
+  if (!createRes || !createRes.data) {
+    throw new Error(`Failed to create app user: empty response ${createRes?.status} ${JSON.stringify(createRes?.data)}`);
+  }
+  if (Array.isArray(createRes.data) && createRes.data.length > 0 && createRes.data[0].id) {
+    return createRes.data[0].id;
+  }
+  if (typeof createRes.data === 'object' && createRes.data.id) {
+    return createRes.data.id;
+  }
+  throw new Error(`Failed to create app user: unexpected response shape ${JSON.stringify(createRes.data)}`);
 }
 
 async function ensureRole(appUserId) {
@@ -117,7 +139,16 @@ async function ensureRole(appUserId) {
 
   const createRes = await fetchJson(restUrl, { method: 'POST', headers: { ...headers, Prefer: 'return=representation' }, body: JSON.stringify({ user_id: appUserId, role: 'platform_admin' }) });
   if (!createRes.ok) throw new Error(`Failed to create role assignment: ${createRes.status} ${JSON.stringify(createRes.data)}`);
-  return createRes.data[0].id;
+  if (!createRes || !createRes.data) {
+    throw new Error(`Failed to create role assignment: empty response ${createRes?.status} ${JSON.stringify(createRes?.data)}`);
+  }
+  if (Array.isArray(createRes.data) && createRes.data.length > 0 && createRes.data[0].id) {
+    return createRes.data[0].id;
+  }
+  if (typeof createRes.data === 'object' && createRes.data.id) {
+    return createRes.data.id;
+  }
+  throw new Error(`Failed to create role assignment: unexpected response shape ${JSON.stringify(createRes.data)}`);
 }
 
 async function run() {

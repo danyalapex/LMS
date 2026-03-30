@@ -1,10 +1,11 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
-function toLocalDateString(d: Date) {
-  // Convert to YYYY-MM-DD in local timezone to avoid UTC midnight shifts
-  const tzOffset = d.getTimezoneOffset();
-  const local = new Date(d.getTime() - tzOffset * 60000);
-  return local.toISOString().slice(0, 10);
+function toUTCDateString(d: Date) {
+  // Use UTC date (YYYY-MM-DD) to match Postgres `date` columns which are
+  // stored without timezone. This avoids server-local timezone shifts.
+  // If you need a specific timezone, replace this with a timezone-aware
+  // conversion (e.g., using luxon) and ensure DB values are consistent.
+  return d.toISOString().slice(0, 10);
 }
 
 async function run() {
@@ -13,8 +14,8 @@ async function run() {
   const today = new Date();
   const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-  const todayStr = toLocalDateString(today);
-  const futureStr = toLocalDateString(future);
+  const todayStr = toUTCDateString(today);
+  const futureStr = toUTCDateString(future);
 
   const limit = 500;
   let offset = 0;
