@@ -103,6 +103,8 @@ function parseName(fullName: string) {
 export async function signInAction(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "").trim();
+  const redirectTo = String(formData.get("redirect_to") ?? "").trim();
+  const requireRole = String(formData.get("require_role") ?? "").trim();
 
   if (!email || !password) {
     redirect("/login?error=missing_credentials");
@@ -115,7 +117,44 @@ export async function signInAction(formData: FormData) {
     redirect(`/login?error=${encodeURIComponent(error?.message ?? "invalid_login")}`);
   }
 
+  // If a role is required for this sign-in flow, verify the app user has it.
+  if (requireRole) {
+    try {
+      const admin = createSupabaseAdminClient();
+      const { data: appUser } = await admin
+        .from("users")
+        .select("id")
+        .eq("auth_user_id", data.user.id)
+        .maybeSingle();
+
+      if (!appUser?.id) {
+        // No app profile - sign out and redirect to login with message
+        await supabase.auth.signOut();
+        redirect(`/login?error=${encodeURIComponent("no_profile_for_user")}`);
+      }
+
+      const { data: roleRow } = await admin
+        .from("user_role_assignments")
+        .select("role")
+        .eq("user_id", appUser.id)
+        .eq("role", requireRole)
+        .maybeSingle();
+
+      if (!roleRow) {
+        await supabase.auth.signOut();
+        redirect(`/login?error=${encodeURIComponent("not_authorized")}`);
+      }
+    } catch (err) {
+      await supabase.auth.signOut();
+      redirect(`/login?error=${encodeURIComponent("authorization_check_failed")}`);
+    }
+  }
+
   revalidatePath("/", "layout");
+  if (redirectTo) {
+    redirect(redirectTo);
+  }
+
   redirect("/");
 }
 
