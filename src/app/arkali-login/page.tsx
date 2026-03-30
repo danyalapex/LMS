@@ -1,4 +1,4 @@
-import { signInAction } from "@/app/actions/auth";
+import { signInArkaliAction } from "@/app/actions/arkali-auth";
 import { PremiumButton, PremiumInput } from "@/components/ui/premium-components";
 
 export default async function ArkaliLoginPage() {
@@ -11,9 +11,7 @@ export default async function ArkaliLoginPage() {
           <p className="mt-2 text-sm text-slate-600">Sign in with your Arkali staff account to access the Arkali console.</p>
 
           <div className="mt-6">
-            <form action={signInAction} className="space-y-3">
-              <input type="hidden" name="redirect_to" value="/platform/arkali-management" />
-              <input type="hidden" name="require_role" value="platform_admin" />
+            <form action={signInArkaliAction} className="space-y-3">
               <PremiumInput name="email" type="email" placeholder="you@arkali.com" />
               <PremiumInput name="password" type="password" placeholder="Password" />
               <PremiumButton type="submit" variant="primary" size="md" className="w-full">Sign in to Arkali</PremiumButton>
