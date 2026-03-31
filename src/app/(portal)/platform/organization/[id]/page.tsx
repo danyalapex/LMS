@@ -57,25 +57,26 @@ export default async function OrganizationPage({ params, searchParams }: Params)
       .limit(50),
   ]);
 
-  if (orgRes.error || subsRes.error || paymentsRes.error) {
-    console.error("Supabase query errors for organization page:", {
-      orgError: orgRes.error ?? null,
-      subsError: subsRes.error ?? null,
-      paymentsError: paymentsRes.error ?? null,
-    });
+  // Handle errors gracefully - use available data even if some queries fail
+  const organization = orgRes.data ?? null;
+  const subscriptions = subsRes.data ?? [];
+  const paymentRows = paymentsRes.data ?? [];
 
+  // Log errors but don't fail - show what data is available
+  if (orgRes.error) console.warn("Organization query error:", orgRes.error);
+  if (subsRes.error) console.warn("Subscriptions query error:", subsRes.error);
+  if (paymentsRes.error) console.warn("Payments query error:", paymentsRes.error);
+
+  // If no organization found, show error
+  if (!organization) {
     return (
       <div className="p-6">
         <PremiumCard>
-          <p className="text-red-600">Failed to load organization data. Please try again later.</p>
+          <p className="text-red-600">Organization not found. Please check the ID and try again.</p>
         </PremiumCard>
       </div>
     );
   }
-
-  const organization = orgRes.data ?? null;
-  const subscriptions = subsRes.data ?? [];
-  const paymentRows = paymentsRes.data ?? [];
 
   return (
     <div className="p-6 space-y-6">
