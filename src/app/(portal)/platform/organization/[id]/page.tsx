@@ -1,7 +1,8 @@
+import { redirect } from "next/navigation";
 import { headers, cookies } from "next/headers";
 import crypto from "crypto";
 import { PremiumCard, PremiumSectionTitle, PremiumButton } from "@/components/ui/premium-components";
-import { requireRole } from "@/lib/auth";
+import { requireIdentity } from "@/lib/auth";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import React from "react";
 
@@ -33,11 +34,21 @@ export default async function OrganizationPage({ params, searchParams }: Params)
 
   const hasBypass = secretKey && (safeEqual(secretKey, headerKey) || safeEqual(secretKey, cookieKey));
 
-  if (!hasBypass) {
-    await requireRole(["platform_admin"]);
-  }
-
   const id = params.id;
+
+  // Authorization: Check if user has access
+  const identity = await requireIdentity();
+  
+  if (!hasBypass) {
+    const isPlatformAdmin = identity.roles.includes("platform_admin");
+    const isSchoolUser = ["admin", "finance", "teacher"].some(r => identity.roles.includes(r as any));
+    const isOwnOrganization = identity.organizationId === id;
+
+    // Allow if: (1) platform admin, OR (2) school user accessing own organization
+    if (!isPlatformAdmin && (!isSchoolUser || !isOwnOrganization)) {
+      redirect("/admin"); // Redirect to their dashboard
+    }
+  }
 
   const admin = createSupabaseAdminClient();
 
