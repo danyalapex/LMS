@@ -1,27 +1,31 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { PremiumButton, PremiumCard, PremiumSectionTitle } from '@/components/ui/premium-components';
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { BasicSubscriptionCard, PremiumSubscriptionCard } from "@/components/ui/subscription-ui";
+import { GlassCard } from "@/components/ui/glassmorphism-components";
+import { PremiumButton } from "@/components/ui/premium-components";
 
-interface Organization {
+interface OrganizationWithSub {
   id: string;
   name: string;
   code: string;
   contact_email: string;
   status: string;
-  timezone: string;
+  subscription?: {
+    id: string;
+    status: string;
+    amount_pkr: number;
+    starts_on: string;
+    ends_on: string;
+    seats: number;
+    next_billing_date: string;
+    subscription_plans: { code: string; name: string }[];
+  };
 }
 
-interface Subscription {
-  id: string;
-  status: string;
-  ends_on: string | null;
-  subscription_plans?: { name: string; code: string };
-}
-
-export default function OrganizationListPage() {
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
+export default function OrganizationsListPage() {
+  const [organizations, setOrganizations] = useState<OrganizationWithSub[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,12 +33,26 @@ export default function OrganizationListPage() {
     const fetchOrganizations = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/admin/schools');
-        if (!response.ok) throw new Error('Failed to fetch organizations');
-        const data = await response.json();
-        setOrganizations(data);
+        const res = await fetch("/api/admin/schools");
+        if (!res.ok) throw new Error("Failed to fetch organizations");
+        const schools = await res.json();
+
+        // Fetch subscriptions
+        const subsRes = await fetch("/api/admin/subscriptions");
+        const subs = await subsRes.json();
+
+        // Map subscriptions to schools
+        const orgsWithSubs: OrganizationWithSub[] = schools.map((school: any) => {
+          const subscription = subs.find((s: any) => s.organization_id === school.id);
+          return {
+            ...school,
+            subscription,
+          };
+        });
+
+        setOrganizations(orgsWithSubs);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
+        setError(err instanceof Error ? err.message : "An error occurred");
       } finally {
         setLoading(false);
       }
@@ -45,67 +63,120 @@ export default function OrganizationListPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="p-8">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading organizations...</p>
+          <p className="text-slate-600">Loading organizations...</p>
         </div>
       </div>
     );
   }
 
+  if (error) {
+    return (
+      <div className="p-8">
+        <GlassCard className="bg-red-50 border-red-200">
+          <p className="text-red-600">Error: {error}</p>
+        </GlassCard>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex justify-between items-center">
-        <PremiumSectionTitle title="Organizations" />
+    <div className="p-8">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-slate-900">Schools & Organizations</h1>
+        <p className="text-slate-600 mt-2">Manage your schools, subscriptions, and billing</p>
       </div>
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-800">Error: {error}</p>
+      {/* Summary Stats */}
+      <div className="grid gap-4 md:grid-cols-3 mb-8">
+        <GlassCard className="bg-blue-50 border-blue-200">
+          <p className="text-sm text-slate-600">Total Organizations</p>
+          <p className="text-3xl font-bold text-slate-900 mt-2">{organizations.length}</p>
+        </GlassCard>
+        <GlassCard className="bg-green-50 border-green-200">
+          <p className="text-sm text-slate-600">Active Subscriptions</p>
+          <p className="text-3xl font-bold text-slate-900 mt-2">
+            {organizations.filter((o) => o.subscription?.status === "active").length}
+          </p>
+        </GlassCard>
+        <GlassCard className="bg-purple-50 border-purple-200">
+          <p className="text-sm text-slate-600">Monthly Revenue</p>
+          <p className="text-3xl font-bold text-slate-900 mt-2">
+            PKR {organizations
+              .filter((o) => o.subscription?.status === "active")
+              .reduce((sum, o) => sum + (o.subscription?.amount_pkr || 0), 0)
+              .toLocaleString()}
+          </p>
+        </GlassCard>
+      </div>
+
+      {/* Organizations Grid */}
+      {organizations.length === 0 ? (
+        <GlassCard className="text-center py-12">
+          <p className="text-slate-600 text-lg">No organizations found</p>
+          <Link href="/admin/schools">
+            <PremiumButton className="mt-4">Create First School</PremiumButton>
+          </Link>
+        </GlassCard>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {organizations.map((org) => {
+            const isPremium = org.subscription?.subscription_plans?.[0]?.code?.includes("premium");
+            const daysUntilExpiry = org.subscription
+              ? Math.ceil(
+                  (new Date(org.subscription.ends_on).getTime() - new Date().getTime()) /
+                    (1000 * 3600 * 24)
+                )
+              : null;
+            const isExpiring = daysUntilExpiry ? daysUntilExpiry <= 30 : false;
+
+            return (
+              <Link key={org.id} href={`/platform/organization/${org.id}`}>
+                {!org.subscription ? (
+                  <GlassCard className="cursor-pointer h-full">
+                    <p className="font-semibold text-slate-900">{org.name}</p>
+                    <p className="text-sm text-slate-600">{org.code}</p>
+                    <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                      <p className="text-xs text-amber-700 font-semibold">⏳ No Active Subscription</p>
+                    </div>
+                  </GlassCard>
+                ) : isPremium ? (
+                  <PremiumSubscriptionCard
+                    schoolName={org.name}
+                    planName={org.subscription.subscription_plans?.[0]?.name || "Premium Plan"}
+                    nextBillingDate={org.subscription.next_billing_date}
+                    seatsUsed={org.subscription.seats || 0}
+                    totalSeats={org.subscription.seats || 100}
+                    monthlyRevenue={org.subscription.amount_pkr}
+                    isExpiring={isExpiring}
+                  />
+                ) : (
+                  <BasicSubscriptionCard
+                    schoolName={org.name}
+                    planName={org.subscription.subscription_plans?.[0]?.name || "Basic Plan"}
+                    nextBillingDate={org.subscription.next_billing_date}
+                    seatsUsed={org.subscription.seats || 0}
+                    totalSeats={org.subscription.seats || 50}
+                    isExpiring={isExpiring}
+                  />
+                )}
+              </Link>
+            );
+          })}
         </div>
       )}
 
-      {organizations.length === 0 ? (
-        <PremiumCard>
-          <div className="text-center py-12">
-            <p className="text-gray-500 text-lg">No organizations found</p>
-          </div>
-        </PremiumCard>
-      ) : (
-        <div className="grid gap-4">
-          {organizations.map((org) => (
-            <Link key={org.id} href={`/platform/organization/${org.id}`}>
-              <PremiumCard className="hover:shadow-lg transition-shadow cursor-pointer">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{org.name}</h3>
-                    <p className="text-sm text-gray-600 mt-1">Code: {org.code}</p>
-                    <p className="text-sm text-gray-600">Email: {org.contact_email}</p>
-                    <p className="text-sm text-gray-600">Timezone: {org.timezone}</p>
-                  </div>
-                  <div className="text-right">
-                    <span
-                      className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
-                        org.status === 'active'
-                          ? 'bg-green-100 text-green-800'
-                          : org.status === 'suspended'
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-gray-100 text-gray-800'
-                      }`}
-                    >
-                      {org.status}
-                    </span>
-                    <PremiumButton variant="outline" size="sm" className="mt-2">
-                      View Details →
-                    </PremiumButton>
-                  </div>
-                </div>
-              </PremiumCard>
-            </Link>
-          ))}
-        </div>
-      )}
+      {/* Admin Actions */}
+      <div className="mt-8 flex gap-4">
+        <Link href="/admin/schools">
+          <PremiumButton>Manage Schools</PremiumButton>
+        </Link>
+        <Link href="/platform/arkali-management">
+          <PremiumButton variant="secondary">View Analytics</PremiumButton>
+        </Link>
+      </div>
     </div>
   );
 }
