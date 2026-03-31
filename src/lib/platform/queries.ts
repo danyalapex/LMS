@@ -162,7 +162,7 @@ export async function listPlatformSchools(): Promise<PlatformSchoolItem[]> {
     }
 
     // Cast fallback response - Stripe fields will be undefined/null in the data
-    subscriptionsRes = fallback as typeof subscriptionsRes;
+    subscriptionsRes = fallback as unknown as typeof subscriptionsRes;
   }
 
   const userCountByOrg = new Map<string, number>();
