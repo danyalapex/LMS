@@ -82,7 +82,15 @@ export async function POST(request: NextRequest) {
 
     if (!allowed) {
       // Sign out to prevent session
-      await supabase.auth.signOut();
+      try {
+        await supabase.auth.signOut();
+      } catch (signOutErr) {
+        console.error("Error signing out unauthorized user:", signOutErr);
+        return NextResponse.json(
+          { error: "Failed to complete authentication process" },
+          { status: 500 }
+        );
+      }
       return NextResponse.json(
         {
           error:
