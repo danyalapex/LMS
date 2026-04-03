@@ -160,10 +160,10 @@ export async function listUserRepos(token: string): Promise<GithubRepo[]> {
  *
  * GitHub enforces:
  * - Starts and ends with alphanumeric characters
- * - May contain hyphens, dots, and underscores in the middle
+ * - May contain hyphens and underscores in the middle
  * - 1–100 characters
  *
- * Export so the API route can reuse the same validation without duplication.
+ * Exported so the API route can reuse the same validation without duplication.
  */
 export function isValidGitHubIdentifier(value: string): boolean {
   return /^[a-zA-Z0-9]([a-zA-Z0-9_-]{0,98}[a-zA-Z0-9])?$/.test(value);
@@ -193,14 +193,14 @@ export async function updateRepoVisibility(
   const res = await fetch(
     `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`,
     {
-    method: "PATCH",
-    headers: {
-      Accept: "application/vnd.github+json",
-      Authorization: `Bearer ${token}`,
-      "X-GitHub-Api-Version": "2022-11-28",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ private: makePrivate }),
+      method: "PATCH",
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${token}`,
+        "X-GitHub-Api-Version": "2022-11-28",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ private: makePrivate }),
     }
   );
 
