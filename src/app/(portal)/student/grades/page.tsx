@@ -1,4 +1,4 @@
-﻿import { requireIdentity, requireRole } from "@/lib/auth";
+import { requireIdentity, requireRole } from "@/lib/auth";
 import { listStudentGradebook } from "@/lib/lms/queries";
 
 export default async function StudentGradesPage() {
@@ -20,6 +20,9 @@ export default async function StudentGradesPage() {
                 <th className="px-5 py-3">Assignment</th>
                 <th className="px-5 py-3">Course</th>
                 <th className="px-5 py-3">Score</th>
+                <th className="px-5 py-3">Percent</th>
+                <th className="px-5 py-3">Grade</th>
+                <th className="px-5 py-3">Points</th>
                 <th className="px-5 py-3">Feedback</th>
                 <th className="px-5 py-3">Graded At</th>
               </tr>
@@ -31,6 +34,13 @@ export default async function StudentGradesPage() {
                   <td className="px-5 py-3">{entry.course_code}</td>
                   <td className="px-5 py-3">
                     {entry.score}/{entry.assignment_max_score}
+                  </td>
+                  <td className="px-5 py-3">
+                    {entry.percentage !== null ? `${entry.percentage}%` : "-"}
+                  </td>
+                  <td className="px-5 py-3">{entry.letter_grade || "-"}</td>
+                  <td className="px-5 py-3">
+                    {entry.grade_points !== null ? entry.grade_points : "-"}
                   </td>
                   <td className="px-5 py-3">{entry.feedback || "-"}</td>
                   <td className="px-5 py-3">{new Date(entry.graded_at).toLocaleString()}</td>

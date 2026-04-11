@@ -1,5 +1,16 @@
 ﻿import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
+import { requireIdentity } from "@/lib/auth";
+import {
+  getFeeInvoiceBalance,
+  resolveFeeInvoiceStatus,
+} from "@/lib/lms/billing";
+import {
+  createDefaultOrganizationFeeSettings,
+  createDefaultOrganizationPaymentMethods,
+  isMissingRelationError,
+} from "@/lib/lms/school-rules";
+
 type MaybeArray<T> = T | T[] | null;
 
 function one<T>(value: MaybeArray<T>): T | null {
@@ -10,25 +21,38 @@ function one<T>(value: MaybeArray<T>): T | null {
   return value ?? null;
 }
 
+async function getViewerOrganizationId() {
+  const identity = await requireIdentity();
+  return identity.organizationId;
+}
+
 export type StudentListItem = {
   id: string;
+  user_id: string;
   student_code: string;
   grade_level: string;
   admission_date: string;
   first_name: string;
   last_name: string;
   email: string;
+  phone: string | null;
+  status: string;
 };
 
 export type StaffListItem = {
   id: string;
+  user_id: string;
   employee_code: string;
   department: string;
   designation: string;
+  hire_date: string;
   monthly_salary: number;
   first_name: string;
   last_name: string;
   email: string;
+  phone: string | null;
+  status: string;
+  role: string;
 };
 
 export type PayrollCycleItem = {
@@ -101,6 +125,9 @@ export type TeacherSubmissionItem = {
   course_code: string;
   course_title: string;
   grade_score: number | null;
+  grade_percentage: number | null;
+  grade_letter: string | null;
+  grade_points: number | null;
   grade_feedback: string | null;
   grade_graded_at: string | null;
 };
@@ -112,9 +139,19 @@ export type CourseEnrollmentItem = {
   last_name: string;
 };
 
+export type CourseEnrollmentDirectoryItem = {
+  course_id: string;
+  student_id: string;
+  student_code: string;
+  student_name: string;
+};
+
 export type StudentGradeItem = {
   id: string;
   score: number;
+  percentage: number | null;
+  letter_grade: string | null;
+  grade_points: number | null;
   feedback: string | null;
   graded_at: string;
   assignment_title: string;
@@ -123,11 +160,56 @@ export type StudentGradeItem = {
   course_title: string;
 };
 
+export type OrganizationFeeSettingsItem = {
+  id: string;
+  organization_id: string;
+  currency_code: string;
+  allow_partial_payments: boolean;
+  late_fee_grace_days: number;
+  late_fee_flat_amount: number;
+  receipt_prefix: string;
+};
+
+export type OrganizationPaymentMethodItem = {
+  id: string;
+  organization_id: string;
+  method_code: string;
+  label: string;
+  instructions: string | null;
+  enabled: boolean;
+  account_details: Record<string, unknown>;
+  sort_order: number;
+};
+
+export type OrganizationGradingBandItem = {
+  id: string;
+  grading_policy_id: string;
+  band_label: string;
+  min_percentage: number;
+  max_percentage: number;
+  grade_points: number | null;
+  remarks: string | null;
+  sort_order: number;
+};
+
+export type OrganizationGradingPolicyItem = {
+  id: string;
+  organization_id: string;
+  policy_name: string;
+  pass_mark: number;
+  decimal_precision: number;
+  is_default: boolean;
+  created_at: string;
+  bands: OrganizationGradingBandItem[];
+};
+
 export type CourseWithTeacherItem = {
   id: string;
   code: string;
   title: string;
   grade_level: string;
+  credit_hours: number;
+  enrollment_count: number;
   teacher_user_id: string | null;
   teacher_name: string;
 };
@@ -274,6 +356,39 @@ export type FeePaymentItem = {
   created_at: string;
 };
 
+export type FeeInvoiceDocumentPaymentItem = {
+  id: string;
+  amount_paid: number;
+  payment_date: string;
+  method: string;
+  reference_no: string | null;
+  created_at: string;
+  receipt_code: string;
+};
+
+export type FeeInvoiceDocumentItem = {
+  id: string;
+  invoice_code: string;
+  title: string;
+  student_id: string;
+  student_code: string;
+  student_name: string;
+  student_grade_level: string;
+  fee_plan_code: string;
+  amount_due: number;
+  total_paid: number;
+  balance: number;
+  due_date: string;
+  status: string;
+  notes: string | null;
+  created_at: string;
+  organization_name: string;
+  organization_contact_email: string | null;
+  currency_code: string;
+  receipt_prefix: string;
+  payments: FeeInvoiceDocumentPaymentItem[];
+};
+
 export type StudentFeeInvoiceItem = {
   id: string;
   invoice_code: string;
@@ -344,57 +459,143 @@ export async function getAdminOverviewData() {
 
 export async function listStudents(): Promise<StudentListItem[]> {
   const admin = createSupabaseAdminClient();
+  const organizationId = await getViewerOrganizationId();
+
+  const { data: userRows, error: userError } = await admin
+    .from("users")
+    .select("id, first_name, last_name, email, phone, status")
+    .eq("organization_id", organizationId)
+    .limit(5000);
+
+  if (userError) throw new Error(userError.message);
+
+  const userMap = new Map(
+    (userRows ?? []).map((row) => [
+      row.id,
+      {
+        first_name: row.first_name,
+        last_name: row.last_name,
+        email: row.email,
+        phone: row.phone,
+        status: row.status,
+      },
+    ]),
+  );
+
+  const userIds = [...userMap.keys()];
+  if (userIds.length === 0) {
+    return [];
+  }
 
   const { data, error } = await admin
     .from("students")
-    .select(
-      "id, student_code, grade_level, admission_date, users!students_user_id_fkey(first_name,last_name,email)",
-    )
+    .select("id, user_id, student_code, grade_level, admission_date")
+    .in("user_id", userIds)
     .order("admission_date", { ascending: false })
-    .limit(50);
+    .limit(200);
 
   if (error) throw new Error(error.message);
 
   return (data ?? []).map((row) => {
-    const user = one(row.users as MaybeArray<{ first_name: string; last_name: string; email: string }>);
+    const user = userMap.get(row.user_id);
 
     return {
       id: row.id,
+      user_id: row.user_id,
       student_code: row.student_code,
       grade_level: row.grade_level,
       admission_date: row.admission_date,
       first_name: user?.first_name ?? "",
       last_name: user?.last_name ?? "",
       email: user?.email ?? "",
+      phone: user?.phone ?? null,
+      status: user?.status ?? "active",
     };
   });
 }
 
 export async function listStaffProfiles(): Promise<StaffListItem[]> {
   const admin = createSupabaseAdminClient();
+  const organizationId = await getViewerOrganizationId();
+
+  const { data: userRows, error: userError } = await admin
+    .from("users")
+    .select("id, first_name, last_name, email, phone, status")
+    .eq("organization_id", organizationId)
+    .limit(5000);
+
+  if (userError) throw new Error(userError.message);
+
+  const userMap = new Map(
+    (userRows ?? []).map((row) => [
+      row.id,
+      {
+        first_name: row.first_name,
+        last_name: row.last_name,
+        email: row.email,
+        phone: row.phone,
+        status: row.status,
+      },
+    ]),
+  );
+
+  const userIds = [...userMap.keys()];
+  if (userIds.length === 0) {
+    return [];
+  }
 
   const { data, error } = await admin
     .from("staff_profiles")
-    .select(
-      "id, employee_code, department, designation, monthly_salary, users!staff_profiles_user_id_fkey(first_name,last_name,email)",
-    )
+    .select("id, user_id, employee_code, department, designation, hire_date, monthly_salary")
+    .in("user_id", userIds)
     .order("created_at", { ascending: false })
-    .limit(50);
+    .limit(200);
 
   if (error) throw new Error(error.message);
 
+  const staffUserIds = (data ?? []).map((row) => row.user_id);
+  const { data: roleRows, error: roleError } =
+    staffUserIds.length === 0
+      ? { data: [], error: null }
+      : await admin
+          .from("user_role_assignments")
+          .select("user_id, role")
+          .in("user_id", staffUserIds)
+          .in("role", ["teacher", "finance", "admin"]);
+
+  if (roleError) throw new Error(roleError.message);
+
+  const rolePriority: Record<string, number> = {
+    finance: 1,
+    teacher: 2,
+    admin: 3,
+  };
+  const roleMap = new Map<string, string>();
+
+  for (const row of roleRows ?? []) {
+    const current = roleMap.get(row.user_id);
+    if (!current || rolePriority[row.role] < rolePriority[current]) {
+      roleMap.set(row.user_id, row.role);
+    }
+  }
+
   return (data ?? []).map((row) => {
-    const user = one(row.users as MaybeArray<{ first_name: string; last_name: string; email: string }>);
+    const user = userMap.get(row.user_id);
 
     return {
       id: row.id,
+      user_id: row.user_id,
       employee_code: row.employee_code,
       department: row.department,
       designation: row.designation,
+      hire_date: row.hire_date,
       monthly_salary: Number(row.monthly_salary),
       first_name: user?.first_name ?? "",
       last_name: user?.last_name ?? "",
       email: user?.email ?? "",
+      phone: user?.phone ?? null,
+      status: user?.status ?? "active",
+      role: roleMap.get(row.user_id) ?? "teacher",
     };
   });
 }
@@ -404,20 +605,37 @@ export async function listPayrollCyclesWithEntries(): Promise<{
   entries: PayrollEntryItem[];
 }> {
   const admin = createSupabaseAdminClient();
+  const organizationId = await getViewerOrganizationId();
 
   const { data: cycles, error: cycleError } = await admin
     .from("payroll_cycles")
     .select("id, cycle_code, period_start, period_end, status")
+    .eq("organization_id", organizationId)
     .order("period_start", { ascending: false })
     .limit(12);
 
   if (cycleError) throw new Error(cycleError.message);
+  const cycleIds = (cycles ?? []).map((c) => c.id);
+
+  if (cycleIds.length === 0) {
+    return {
+      cycles: (cycles ?? []).map((row) => ({
+        id: row.id,
+        cycle_code: row.cycle_code,
+        period_start: row.period_start,
+        period_end: row.period_end,
+        status: row.status,
+      })),
+      entries: [],
+    };
+  }
 
   const { data: entries, error: entryError } = await admin
     .from("payroll_entries")
     .select(
       "id, payroll_cycle_id, gross_amount, deductions, net_amount, status, staff_profiles!payroll_entries_staff_profile_id_fkey(employee_code, users!staff_profiles_user_id_fkey(first_name,last_name))",
     )
+    .in("payroll_cycle_id", cycleIds)
     .order("id", { ascending: false })
     .limit(100);
 
@@ -485,17 +703,29 @@ export async function listCoursesForTeacher(authUserId: string): Promise<CourseI
 export async function listAllCourses(): Promise<CourseWithTeacherItem[]> {
   const admin = createSupabaseAdminClient();
 
-  const { data, error } = await admin
-    .from("courses")
-    .select(
-      "id, code, title, grade_level, teacher_user_id, users!courses_teacher_user_id_fkey(first_name,last_name)",
-    )
-    .order("code", { ascending: true })
-    .limit(200);
+  const [courseRows, enrollmentRows] = await Promise.all([
+    admin
+      .from("courses")
+      .select(
+        "id, code, title, grade_level, credit_hours, teacher_user_id, users!courses_teacher_user_id_fkey(first_name,last_name)",
+      )
+      .order("code", { ascending: true })
+      .limit(300),
+    admin.from("course_enrollments").select("course_id").limit(10000),
+  ]);
 
-  if (error) throw new Error(error.message);
+  if (courseRows.error) throw new Error(courseRows.error.message);
+  if (enrollmentRows.error) throw new Error(enrollmentRows.error.message);
 
-  return (data ?? []).map((row) => {
+  const enrollmentCountMap = new Map<string, number>();
+  for (const row of enrollmentRows.data ?? []) {
+    enrollmentCountMap.set(
+      row.course_id,
+      (enrollmentCountMap.get(row.course_id) ?? 0) + 1,
+    );
+  }
+
+  return (courseRows.data ?? []).map((row) => {
     const teacher = one(
       row.users as MaybeArray<{ first_name: string; last_name: string }>,
     );
@@ -505,6 +735,8 @@ export async function listAllCourses(): Promise<CourseWithTeacherItem[]> {
       code: row.code,
       title: row.title,
       grade_level: row.grade_level,
+      credit_hours: Number(row.credit_hours ?? 1),
+      enrollment_count: enrollmentCountMap.get(row.id) ?? 0,
       teacher_user_id: row.teacher_user_id,
       teacher_name: teacher
         ? `${teacher.first_name} ${teacher.last_name}`.trim()
@@ -851,7 +1083,9 @@ export async function listTeacherSubmissionQueue(
       .limit(2000),
     admin
       .from("grades")
-      .select("assignment_id, student_id, score, feedback, graded_at")
+      .select(
+        "assignment_id, student_id, score, percentage, letter_grade, grade_points, feedback, graded_at",
+      )
       .in("assignment_id", assignmentIds)
       .limit(2000),
   ]);
@@ -894,6 +1128,15 @@ export async function listTeacherSubmissionQueue(
       `${row.assignment_id}:${row.student_id}`,
       {
         score: Number(row.score),
+        percentage:
+          row.percentage === null || row.percentage === undefined
+            ? null
+            : Number(row.percentage),
+        letter_grade: row.letter_grade,
+        grade_points:
+          row.grade_points === null || row.grade_points === undefined
+            ? null
+            : Number(row.grade_points),
         feedback: row.feedback,
         graded_at: row.graded_at,
       },
@@ -921,6 +1164,9 @@ export async function listTeacherSubmissionQueue(
       course_code: course?.code ?? "",
       course_title: course?.title ?? "",
       grade_score: grade?.score ?? null,
+      grade_percentage: grade?.percentage ?? null,
+      grade_letter: grade?.letter_grade ?? null,
+      grade_points: grade?.grade_points ?? null,
       grade_feedback: grade?.feedback ?? null,
       grade_graded_at: grade?.graded_at ?? null,
     };
@@ -958,6 +1204,42 @@ export async function listCourseEnrollments(
       last_name: user?.last_name ?? "",
     };
   });
+}
+
+export async function listAllCourseEnrollments(): Promise<
+  CourseEnrollmentDirectoryItem[]
+> {
+  const admin = createSupabaseAdminClient();
+
+  const { data, error } = await admin
+    .from("course_enrollments")
+    .select(
+      "course_id, student_id, students!course_enrollments_student_id_fkey(student_code, users!students_user_id_fkey(first_name,last_name))",
+    )
+    .limit(5000);
+
+  if (error) throw new Error(error.message);
+
+  return (data ?? [])
+    .map((row) => {
+      const student = one(
+        row.students as MaybeArray<{
+          student_code: string;
+          users: MaybeArray<{ first_name: string; last_name: string }>;
+        }>,
+      );
+      const user = one(student?.users ?? null);
+
+      if (!student || !user) return null;
+
+      return {
+        course_id: row.course_id,
+        student_id: row.student_id,
+        student_code: student.student_code,
+        student_name: `${user.first_name} ${user.last_name}`.trim(),
+      };
+    })
+    .filter((row): row is CourseEnrollmentDirectoryItem => !!row);
 }
 
 export async function listTeacherTimetable(
@@ -1044,7 +1326,7 @@ export async function listStudentGradebook(
   const { data, error } = await admin
     .from("grades")
     .select(
-      "id, score, feedback, graded_at, assignments!grades_assignment_id_fkey(title,max_score,courses!assignments_course_id_fkey(code,title))",
+      "id, score, percentage, letter_grade, grade_points, feedback, graded_at, assignments!grades_assignment_id_fkey(title,max_score,courses!assignments_course_id_fkey(code,title))",
     )
     .eq("student_id", student.id)
     .order("graded_at", { ascending: false })
@@ -1065,6 +1347,15 @@ export async function listStudentGradebook(
     return {
       id: row.id,
       score: Number(row.score),
+      percentage:
+        row.percentage === null || row.percentage === undefined
+          ? null
+          : Number(row.percentage),
+      letter_grade: row.letter_grade,
+      grade_points:
+        row.grade_points === null || row.grade_points === undefined
+          ? null
+          : Number(row.grade_points),
       feedback: row.feedback,
       graded_at: row.graded_at,
       assignment_title: assignment?.title ?? "",
@@ -1444,9 +1735,11 @@ export async function getPayrollCycleSummaryReport(): Promise<PayrollCycleSummar
 
 export async function listFeePlans(): Promise<FeePlanItem[]> {
   const admin = createSupabaseAdminClient();
+  const organizationId = await getViewerOrganizationId();
   const { data, error } = await admin
     .from("fee_plans")
     .select("id, plan_code, title, grade_level, amount, recurrence, active")
+    .eq("organization_id", organizationId)
     .order("created_at", { ascending: false })
     .limit(500);
 
@@ -1465,17 +1758,20 @@ export async function listFeePlans(): Promise<FeePlanItem[]> {
 
 export async function listFeeInvoices(): Promise<FeeInvoiceItem[]> {
   const admin = createSupabaseAdminClient();
+  const organizationId = await getViewerOrganizationId();
   const [invoiceRows, paymentRows] = await Promise.all([
     admin
       .from("fee_invoices")
       .select(
         "id, invoice_code, title, student_id, fee_plan_id, amount_due, due_date, status, notes, created_at, students!fee_invoices_student_id_fkey(student_code, users!students_user_id_fkey(first_name,last_name)), fee_plans!fee_invoices_fee_plan_id_fkey(plan_code)",
       )
+      .eq("organization_id", organizationId)
       .order("created_at", { ascending: false })
       .limit(2000),
     admin
       .from("fee_payments")
       .select("invoice_id, amount_paid")
+      .eq("organization_id", organizationId)
       .limit(10000),
   ]);
 
@@ -1499,6 +1795,12 @@ export async function listFeeInvoices(): Promise<FeeInvoiceItem[]> {
     const plan = one(row.fee_plans as MaybeArray<{ plan_code: string }>);
     const totalPaid = Number((paidByInvoice.get(row.id) ?? 0).toFixed(2));
     const amountDue = Number(row.amount_due);
+    const status = resolveFeeInvoiceStatus({
+      amountDue,
+      totalPaid,
+      dueDate: row.due_date,
+      requestedStatus: row.status,
+    });
 
     return {
       id: row.id,
@@ -1513,9 +1815,9 @@ export async function listFeeInvoices(): Promise<FeeInvoiceItem[]> {
       fee_plan_code: plan?.plan_code ?? "",
       amount_due: amountDue,
       total_paid: totalPaid,
-      balance: Number((amountDue - totalPaid).toFixed(2)),
+      balance: getFeeInvoiceBalance(amountDue, totalPaid),
       due_date: row.due_date,
-      status: row.status,
+      status,
       notes: row.notes,
       created_at: row.created_at,
     };
@@ -1524,11 +1826,13 @@ export async function listFeeInvoices(): Promise<FeeInvoiceItem[]> {
 
 export async function listFeePayments(): Promise<FeePaymentItem[]> {
   const admin = createSupabaseAdminClient();
+  const organizationId = await getViewerOrganizationId();
   const { data, error } = await admin
     .from("fee_payments")
     .select(
       "id, invoice_id, student_id, amount_paid, payment_date, method, reference_no, created_at, fee_invoices!fee_payments_invoice_id_fkey(invoice_code), students!fee_payments_student_id_fkey(users!students_user_id_fkey(first_name,last_name))",
     )
+    .eq("organization_id", organizationId)
     .order("payment_date", { ascending: false })
     .limit(5000);
 
@@ -1558,6 +1862,111 @@ export async function listFeePayments(): Promise<FeePaymentItem[]> {
       created_at: row.created_at,
     };
   });
+}
+
+export async function getFeeInvoiceDocument(
+  invoiceId: string,
+  organizationId: string,
+): Promise<FeeInvoiceDocumentItem | null> {
+  const admin = createSupabaseAdminClient();
+
+  const [invoiceRow, paymentRows, feeSettingsRow, organizationRow] = await Promise.all([
+    admin
+      .from("fee_invoices")
+      .select(
+        "id, invoice_code, title, student_id, fee_plan_id, amount_due, due_date, status, notes, created_at, students!fee_invoices_student_id_fkey(student_code, grade_level, users!students_user_id_fkey(first_name,last_name)), fee_plans!fee_invoices_fee_plan_id_fkey(plan_code)",
+      )
+      .eq("organization_id", organizationId)
+      .eq("id", invoiceId)
+      .maybeSingle(),
+    admin
+      .from("fee_payments")
+      .select("id, amount_paid, payment_date, method, reference_no, created_at")
+      .eq("organization_id", organizationId)
+      .eq("invoice_id", invoiceId)
+      .order("payment_date", { ascending: false }),
+    admin
+      .from("organization_fee_settings")
+      .select("currency_code, receipt_prefix")
+      .eq("organization_id", organizationId)
+      .maybeSingle(),
+    admin
+      .from("organizations")
+      .select("name, contact_email")
+      .eq("id", organizationId)
+      .maybeSingle(),
+  ]);
+
+  if (invoiceRow.error) throw new Error(invoiceRow.error.message);
+  if (paymentRows.error) throw new Error(paymentRows.error.message);
+  if (feeSettingsRow.error && !isMissingRelationError(feeSettingsRow.error)) {
+    throw new Error(feeSettingsRow.error.message);
+  }
+  if (organizationRow.error) throw new Error(organizationRow.error.message);
+
+  if (!invoiceRow.data) {
+    return null;
+  }
+
+  const student = one(
+    invoiceRow.data.students as MaybeArray<{
+      student_code: string;
+      grade_level: string;
+      users: MaybeArray<{ first_name: string; last_name: string }>;
+    }>,
+  );
+  const studentUser = one(student?.users ?? null);
+  const plan = one(invoiceRow.data.fee_plans as MaybeArray<{ plan_code: string }>);
+  const feeSettings =
+    feeSettingsRow.data ??
+    createDefaultOrganizationFeeSettings(organizationId);
+  const currencyCode = feeSettings.currency_code;
+  const receiptPrefix = feeSettings.receipt_prefix;
+  const payments = (paymentRows.data ?? []).map((payment) => ({
+    id: payment.id,
+    amount_paid: Number(payment.amount_paid),
+    payment_date: payment.payment_date,
+    method: payment.method,
+    reference_no: payment.reference_no,
+    created_at: payment.created_at,
+    receipt_code: `${receiptPrefix}-${payment.payment_date.replaceAll("-", "")}-${payment.id
+      .slice(0, 6)
+      .toUpperCase()}`,
+  }));
+  const totalPaid = Number(
+    payments.reduce((sum, payment) => sum + payment.amount_paid, 0).toFixed(2),
+  );
+  const amountDue = Number(invoiceRow.data.amount_due);
+
+  return {
+    id: invoiceRow.data.id,
+    invoice_code: invoiceRow.data.invoice_code,
+    title: invoiceRow.data.title,
+    student_id: invoiceRow.data.student_id,
+    student_code: student?.student_code ?? "",
+    student_name: studentUser
+      ? `${studentUser.first_name} ${studentUser.last_name}`.trim()
+      : "Unknown Student",
+    student_grade_level: student?.grade_level ?? "",
+    fee_plan_code: plan?.plan_code ?? "",
+    amount_due: amountDue,
+    total_paid: totalPaid,
+    balance: getFeeInvoiceBalance(amountDue, totalPaid),
+    due_date: invoiceRow.data.due_date,
+    status: resolveFeeInvoiceStatus({
+      amountDue,
+      totalPaid,
+      dueDate: invoiceRow.data.due_date,
+      requestedStatus: invoiceRow.data.status,
+    }),
+    notes: invoiceRow.data.notes,
+    created_at: invoiceRow.data.created_at,
+    organization_name: organizationRow.data?.name ?? "School",
+    organization_contact_email: organizationRow.data?.contact_email ?? null,
+    currency_code: currencyCode,
+    receipt_prefix: receiptPrefix,
+    payments,
+  };
 }
 
 export async function listStudentFeeLedger(
@@ -1619,6 +2028,163 @@ export async function listStudentFeeLedger(
       notes: row.notes,
     };
   });
+}
+
+export async function getOrganizationFeeSettings(
+  organizationId: string,
+): Promise<OrganizationFeeSettingsItem> {
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from("organization_fee_settings")
+    .select(
+      "id, organization_id, currency_code, allow_partial_payments, late_fee_grace_days, late_fee_flat_amount, receipt_prefix",
+    )
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingRelationError(error)) {
+      return createDefaultOrganizationFeeSettings(organizationId);
+    }
+
+    throw new Error(error.message);
+  }
+
+  if (!data) {
+    return createDefaultOrganizationFeeSettings(organizationId);
+  }
+
+  return {
+    id: data.id,
+    organization_id: data.organization_id,
+    currency_code: data.currency_code,
+    allow_partial_payments: data.allow_partial_payments,
+    late_fee_grace_days: data.late_fee_grace_days,
+    late_fee_flat_amount: Number(data.late_fee_flat_amount),
+    receipt_prefix: data.receipt_prefix,
+  };
+}
+
+export async function listOrganizationPaymentMethods(
+  organizationId: string,
+): Promise<OrganizationPaymentMethodItem[]> {
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from("organization_payment_methods")
+    .select(
+      "id, organization_id, method_code, label, instructions, enabled, account_details, sort_order",
+    )
+    .eq("organization_id", organizationId)
+    .order("sort_order", { ascending: true });
+
+  if (error) {
+    if (isMissingRelationError(error)) {
+      return createDefaultOrganizationPaymentMethods(organizationId);
+    }
+
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    organization_id: row.organization_id,
+    method_code: row.method_code,
+    label: row.label,
+    instructions: row.instructions,
+    enabled: row.enabled,
+    account_details: (row.account_details as Record<string, unknown>) ?? {},
+    sort_order: row.sort_order,
+  }));
+}
+
+export async function listOrganizationGradingPolicies(
+  organizationId: string,
+): Promise<OrganizationGradingPolicyItem[]> {
+  const admin = createSupabaseAdminClient();
+  const policyRows = await admin
+    .from("organization_grading_policies")
+    .select(
+      "id, organization_id, policy_name, pass_mark, decimal_precision, is_default, created_at",
+    )
+    .eq("organization_id", organizationId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (policyRows.error) {
+    if (isMissingRelationError(policyRows.error)) {
+      return [];
+    }
+
+    throw new Error(policyRows.error.message);
+  }
+
+  const policyIds = (policyRows.data ?? []).map((row) => row.id);
+  const bandRows =
+    policyIds.length === 0
+      ? { data: [], error: null }
+      : await admin
+          .from("grading_scale_bands")
+          .select(
+            "id, grading_policy_id, band_label, min_percentage, max_percentage, grade_points, remarks, sort_order",
+          )
+          .in("grading_policy_id", policyIds)
+          .limit(500);
+
+  if (bandRows.error) {
+    if (isMissingRelationError(bandRows.error)) {
+      return (policyRows.data ?? []).map((row) => ({
+        id: row.id,
+        organization_id: row.organization_id,
+        policy_name: row.policy_name,
+        pass_mark: Number(row.pass_mark),
+        decimal_precision: row.decimal_precision,
+        is_default: row.is_default,
+        created_at: row.created_at,
+        bands: [],
+      }));
+    }
+
+    throw new Error(bandRows.error.message);
+  }
+
+  const bandsByPolicyId = new Map<string, OrganizationGradingBandItem[]>();
+  for (const row of bandRows.data ?? []) {
+    const current = bandsByPolicyId.get(row.grading_policy_id) ?? [];
+    current.push({
+      id: row.id,
+      grading_policy_id: row.grading_policy_id,
+      band_label: row.band_label,
+      min_percentage: Number(row.min_percentage),
+      max_percentage: Number(row.max_percentage),
+      grade_points:
+        row.grade_points === null || row.grade_points === undefined
+          ? null
+          : Number(row.grade_points),
+      remarks: row.remarks,
+      sort_order: row.sort_order,
+    });
+    bandsByPolicyId.set(row.grading_policy_id, current);
+  }
+
+  return (policyRows.data ?? []).map((row) => ({
+    id: row.id,
+    organization_id: row.organization_id,
+    policy_name: row.policy_name,
+    pass_mark: Number(row.pass_mark),
+    decimal_precision: row.decimal_precision,
+    is_default: row.is_default,
+    created_at: row.created_at,
+    bands: (bandsByPolicyId.get(row.id) ?? []).sort(
+      (a, b) => a.sort_order - b.sort_order,
+    ),
+  }));
+}
+
+export async function getDefaultOrganizationGradingPolicy(
+  organizationId: string,
+): Promise<OrganizationGradingPolicyItem | null> {
+  const policies = await listOrganizationGradingPolicies(organizationId);
+  return policies.find((policy) => policy.is_default) ?? policies[0] ?? null;
 }
 
 export async function getFeeCollectionSummaryReport(): Promise<FeeCollectionSummaryItem[]> {

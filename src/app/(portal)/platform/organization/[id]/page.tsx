@@ -6,9 +6,8 @@ import { requireIdentity } from "@/lib/auth";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import React from "react";
 
-type Params = { params: { id: string }; searchParams?: Record<string, string | string[]> };
-
-export default async function OrganizationPage({ params, searchParams }: Params) {
+export default async function OrganizationPage(props: PageProps<'/platform/organization/[id]'>) {
+  const { params, searchParams } = props;
   const secretKey = process.env.ARKALI_ACCESS_KEY ?? "";
   const hdrs = await headers();
   const cks = await cookies();
@@ -34,7 +33,7 @@ export default async function OrganizationPage({ params, searchParams }: Params)
 
   const hasBypass = secretKey && (safeEqual(secretKey, headerKey) || safeEqual(secretKey, cookieKey));
 
-  const id = params.id;
+  const id = (await params).id;
 
   // Authorization: Check if user has access
   const identity = await requireIdentity();

@@ -49,6 +49,7 @@ export default async function TeacherSubmissionsPage() {
                 <th className="px-5 py-3">Submission</th>
                 <th className="px-5 py-3">Submitted At</th>
                 <th className="px-5 py-3">Grade</th>
+                <th className="px-5 py-3">Result</th>
               </tr>
             </thead>
             <tbody>
@@ -111,6 +112,25 @@ export default async function TeacherSubmissionsPage() {
                         Save Grade
                       </button>
                     </form>
+                  </td>
+                  <td className="px-5 py-3">
+                    {submission.grade_score !== null ? (
+                      <div className="text-xs text-slate-700">
+                        <p className="font-semibold">
+                          {submission.grade_percentage !== null
+                            ? `${submission.grade_percentage}%`
+                            : `${submission.grade_score}/${submission.assignment_max_score}`}
+                        </p>
+                        <p>
+                          {submission.grade_letter || "No band"}{" "}
+                          {submission.grade_points !== null
+                            ? `| ${submission.grade_points} pts`
+                            : ""}
+                        </p>
+                      </div>
+                    ) : (
+                      "-"
+                    )}
                   </td>
                 </tr>
               ))}

@@ -1,6 +1,7 @@
 ﻿import { createAssignmentAction, recordGradeAction } from "@/app/actions/lms";
 import { requireIdentity, requireRole } from "@/lib/auth";
 import {
+  getDefaultOrganizationGradingPolicy,
   listCourseEnrollments,
   listCoursesForTeacher,
   listTeacherAssignments,
@@ -18,13 +19,35 @@ export default async function TeacherGradesPage({ searchParams }: TeacherGradesP
   const courseParam = params.course;
   const courseIdFromQuery = Array.isArray(courseParam) ? courseParam[0] : courseParam;
 
-  const courses = await listCoursesForTeacher(identity.authUserId);
+  const [courses, gradingPolicy] = await Promise.all([
+    listCoursesForTeacher(identity.authUserId),
+    getDefaultOrganizationGradingPolicy(identity.organizationId),
+  ]);
   const selectedCourseId = courseIdFromQuery || courses[0]?.id || "";
   const enrollments = selectedCourseId ? await listCourseEnrollments(selectedCourseId) : [];
   const assignments = await listTeacherAssignments(identity.authUserId);
 
   return (
     <div className="space-y-4">
+      <section className="panel p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="section-heading">Active school grading scale</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              New grades will use {gradingPolicy?.policy_name ?? "the default percentage scale"}.
+            </p>
+          </div>
+          <div className="chip">Pass mark {gradingPolicy?.pass_mark ?? 50}%</div>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {(gradingPolicy?.bands ?? []).map((band) => (
+            <span key={band.id} className="chip">
+              {band.band_label}: {band.min_percentage}-{band.max_percentage}%
+            </span>
+          ))}
+        </div>
+      </section>
+
       <section className="grid gap-4 xl:grid-cols-2">
         <article className="panel p-5">
           <h2 className="section-heading">Create Assignment</h2>

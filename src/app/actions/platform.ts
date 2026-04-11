@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { requireIdentity, requireRole } from "@/lib/auth";
+import { DEFAULT_GRADING_BANDS } from "@/lib/lms/grading";
+import { SUBSCRIPTION_POLICIES } from "@/lib/platform/subscription-policy";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 type PlanSeed = {
@@ -13,46 +15,42 @@ type PlanSeed = {
   includes_personal_branding: boolean;
 };
 
-const PLAN_SEEDS: PlanSeed[] = [
-  {
-    code: "BASIC_3K",
-    name: "Basic",
-    monthly_price_pkr: 3000,
-    description: "Starter LMS access for one school.",
-    features: [
-      "Student and staff management",
-      "Attendance and grading",
-      "Core timetable and reports",
-    ],
-    includes_personal_branding: false,
-  },
-  {
-    code: "NORMAL_8K",
-    name: "Normal",
-    monthly_price_pkr: 8000,
-    description: "Growth plan with finance and workflow automation.",
-    features: [
-      "Everything in Basic",
-      "Fees and payroll workflows",
-      "Institution-level analytics and exports",
-    ],
-    includes_personal_branding: false,
-  },
-  {
-    code: "ELITE_12K",
-    name: "Elite",
-    monthly_price_pkr: 12000,
-    description: "Enterprise-grade plan with custom branding controls.",
-    features: [
-      "Everything in Normal",
-      "Personal branding profile",
-      "Custom color themes and priority support",
-    ],
-    includes_personal_branding: true,
-  },
-];
+const PLAN_SEEDS: PlanSeed[] = SUBSCRIPTION_POLICIES.map((policy) => ({
+  code: policy.code,
+  name: policy.name,
+  monthly_price_pkr: policy.monthlyPricePkr,
+  description: policy.description,
+  features: policy.features,
+  includes_personal_branding: policy.includesPersonalBranding,
+}));
 
 const HEX_COLOR_REGEX = /^#[0-9a-fA-F]{6}$/;
+const SCHOOL_PAYMENT_METHOD_SEEDS = [
+  {
+    method_code: "cash",
+    label: "Cash",
+    instructions: "Record cash collected at front desk or finance office.",
+    sort_order: 1,
+  },
+  {
+    method_code: "bank_transfer",
+    label: "Bank transfer",
+    instructions: "Collect transfer slip or bank reference before approval.",
+    sort_order: 2,
+  },
+  {
+    method_code: "card",
+    label: "Card",
+    instructions: "Use for POS or school office card collections.",
+    sort_order: 3,
+  },
+  {
+    method_code: "online",
+    label: "Online payment",
+    instructions: "Use for gateway or wallet-based school collections.",
+    sort_order: 4,
+  },
+] as const;
 
 function normalizeOrganizationCode(input: string, fallbackName: string): string {
   const source = (input || fallbackName).trim().toUpperCase();
@@ -110,6 +108,76 @@ async function createAuditLog(params: {
     entity_id: params.entityId ?? null,
     metadata: params.metadata ?? {},
   });
+}
+
+async function seedSchoolOperationalDefaults(params: {
+  admin: ReturnType<typeof createSupabaseAdminClient>;
+  organizationId: string;
+}) {
+  const { admin, organizationId } = params;
+
+  await admin.from("organization_fee_settings").upsert(
+    {
+      organization_id: organizationId,
+      currency_code: "PKR",
+      allow_partial_payments: true,
+      late_fee_grace_days: 0,
+      late_fee_flat_amount: 0,
+      receipt_prefix: "RCPT",
+    },
+    { onConflict: "organization_id" },
+  );
+
+  await admin.from("organization_payment_methods").upsert(
+    SCHOOL_PAYMENT_METHOD_SEEDS.map((method) => ({
+      organization_id: organizationId,
+      method_code: method.method_code,
+      label: method.label,
+      instructions: method.instructions,
+      enabled: true,
+      sort_order: method.sort_order,
+    })),
+    { onConflict: "organization_id,method_code" },
+  );
+
+  const { data: existingDefaultPolicy } = await admin
+    .from("organization_grading_policies")
+    .select("id")
+    .eq("organization_id", organizationId)
+    .eq("is_default", true)
+    .maybeSingle();
+
+  if (!existingDefaultPolicy?.id) {
+    const { data: createdPolicy, error: policyError } = await admin
+      .from("organization_grading_policies")
+      .insert({
+        organization_id: organizationId,
+        policy_name: "Default percentage scale",
+        pass_mark: 50,
+        decimal_precision: 2,
+        is_default: true,
+      })
+      .select("id")
+      .single();
+
+    if (policyError || !createdPolicy?.id) {
+      throw new Error(policyError?.message ?? "Failed to create school grading policy");
+    }
+
+    const { error: bandError } = await admin.from("grading_scale_bands").insert(
+      DEFAULT_GRADING_BANDS.map((band) => ({
+        grading_policy_id: createdPolicy.id,
+        band_label: band.band_label,
+        min_percentage: band.min_percentage,
+        max_percentage: band.max_percentage,
+        grade_points: band.grade_points,
+        remarks: band.remarks,
+        sort_order: band.sort_order,
+      })),
+    );
+
+    if (bandError) throw new Error(bandError.message);
+  }
 }
 
 export async function bootstrapPlatformPlansAction() {
@@ -180,6 +248,11 @@ export async function createSchoolAction(formData: FormData) {
   if (organizationError || !organization) {
     throw new Error(organizationError?.message ?? "Failed to create school organization");
   }
+
+  await seedSchoolOperationalDefaults({
+    admin,
+    organizationId: organization.id,
+  });
 
   const { error: brandingError } = await admin.from("organization_branding").insert({
     organization_id: organization.id,
@@ -557,7 +630,7 @@ export async function processSubscriptionRequestAction(formData: FormData) {
 
   if (logError || !logRow) throw new Error(logError?.message ?? "Audit log not found");
 
-  const metadata = (logRow.metadata as Record<string, any>) ?? {};
+  const metadata = (logRow.metadata as Record<string, unknown>) ?? {};
   const requestedPlan = String(metadata.requested_plan ?? "").trim();
   const requestedStatus = String(metadata.requested_status ?? "active").trim();
   const seats = Number(metadata.requested_seats ?? 500);

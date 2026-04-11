@@ -1,10 +1,8 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BasicSubscriptionCard, PremiumSubscriptionCard } from "@/components/ui/subscription-ui";
 import { GlassCard } from "@/components/ui/glassmorphism-components";
 import { PremiumButton } from "@/components/ui/premium-components";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 interface OrganizationWithSub {
   id: string;
@@ -24,66 +22,32 @@ interface OrganizationWithSub {
   };
 }
 
-export default function OrganizationsListPage() {
-  const [organizations, setOrganizations] = useState<OrganizationWithSub[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export default async function OrganizationsListPage() {
+    const admin = createSupabaseAdminClient();
 
-  useEffect(() => {
-    const fetchOrganizations = async () => {
-      try {
-        setLoading(true);
-        const res = await fetch("/api/admin/schools");
-        if (!res.ok) throw new Error("Failed to fetch organizations");
-        const schools = await res.json();
+    const [{ data: schools }, { data: subs }] = await Promise.all([
+      admin
+        .from("organizations")
+        .select("id,name,code,contact_email,status,created_at")
+        .order("created_at", { ascending: false }),
+      admin
+        .from("organization_subscriptions")
+        .select(
+          "id,organization_id,status,amount_pkr,starts_on,ends_on,seats,next_billing_date,subscription_plans!organization_subscriptions_plan_id_fkey(id,code,name),stripe_subscription_id,created_at"
+        )
+        .order("created_at", { ascending: false }),
+    ]);
 
-        // Fetch subscriptions
-        const subsRes = await fetch("/api/admin/subscriptions");
-        const subs = await subsRes.json();
+    const orgsWithSubs = (schools ?? []).map((school: any) => {
+      const subscription = (subs ?? []).find((s: any) => s.organization_id === school.id);
+      return { ...school, subscription } as OrganizationWithSub;
+    });
 
-        // Map subscriptions to schools
-        const orgsWithSubs: OrganizationWithSub[] = schools.map((school: any) => {
-          const subscription = subs.find((s: any) => s.organization_id === school.id);
-          return {
-            ...school,
-            subscription,
-          };
-        });
+    const organizations = orgsWithSubs;
 
-        setOrganizations(orgsWithSubs);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "An error occurred");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchOrganizations();
-  }, []);
-
-  if (loading) {
     return (
       <div className="p-8">
-        <div className="text-center">
-          <p className="text-slate-600">Loading organizations...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-8">
-        <GlassCard className="bg-red-50 border-red-200">
-          <p className="text-red-600">Error: {error}</p>
-        </GlassCard>
-      </div>
-    );
-  }
-
-  return (
-    <div className="p-8">
-      {/* Header */}
+        {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-slate-900">Schools & Organizations</h1>
         <p className="text-slate-600 mt-2">Manage your schools, subscriptions, and billing</p>

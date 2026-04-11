@@ -24,6 +24,11 @@ import {
   listPlatformSchools,
   listSubscriptionPlans,
 } from "@/lib/platform/queries";
+import {
+  SUBSCRIPTION_POLICIES,
+  getSubscriptionPolicy,
+  getSubscriptionPosture,
+} from "@/lib/platform/subscription-policy";
 import { listAuditLogs } from "@/lib/lms/queries";
 
 function formatPkr(value: number) {
@@ -46,15 +51,29 @@ export default async function PlatformPage() {
 
   const auditLogs = await listAuditLogs(50);
   const subscriptionRequests = auditLogs.filter((a) => a.action === "subscription_request");
+  const managedSchools = schools.map((school) => ({
+    ...school,
+    posture: getSubscriptionPosture({
+      planCode: school.current_subscription?.plan_code ?? null,
+      status: school.current_subscription?.status ?? null,
+      seats: school.current_subscription?.seats ?? null,
+      userCount: school.user_count,
+      nextBillingDate: school.current_subscription?.next_billing_date ?? null,
+      endsOn: school.current_subscription?.ends_on ?? null,
+    }),
+  }));
 
   return (
     <div className="space-y-8">
       {/* Header */}
       <div className="border-b border-slate-200 pb-6">
         <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-          Platform Administration
+          Platform Operating Console
         </h1>
-        <p className="mt-2 text-slate-600">Manage schools, subscriptions, and platform revenue</p>
+        <p className="mt-2 max-w-3xl text-slate-600">
+          Govern school onboarding, contract access, subscription posture, and
+          platform revenue from one commercial control room.
+        </p>
       </div>
 
       {/* Premium Stats Section */}
@@ -104,7 +123,10 @@ export default async function PlatformPage() {
         {/* Subscription Plans */}
         <PremiumCard>
           <div className="flex items-center justify-between">
-            <PremiumSectionTitle title="Subscription Plans (PKR)" />
+            <PremiumSectionTitle
+              title="Commercial Plans"
+              subtitle="A contract model that reads like an enterprise platform."
+            />
             <form action={bootstrapPlatformPlansAction}>
               <PremiumButton size="sm" variant="outline" type="submit">
                 🔄 Sync Plans
@@ -239,6 +261,56 @@ export default async function PlatformPage() {
         </PremiumCard>
       </section>
 
+      <section>
+        <PremiumCard>
+          <PremiumSectionTitle
+            title="Plan Governance Matrix"
+            subtitle="Commercial packaging, service posture, and access rights for each standard subscription."
+          />
+          <div className="mt-6 grid gap-4 xl:grid-cols-3">
+            {SUBSCRIPTION_POLICIES.map((policy) => (
+              <div
+                key={policy.code}
+                className="rounded-3xl border border-slate-200 bg-slate-50/90 p-5"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                      {policy.code}
+                    </p>
+                    <h3 className="mt-2 text-xl font-semibold text-slate-950">
+                      {policy.name}
+                    </h3>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-slate-500">Monthly</p>
+                    <p className="mt-1 text-lg font-semibold text-slate-950">
+                      {formatPkr(policy.monthlyPricePkr)}
+                    </p>
+                  </div>
+                </div>
+                <p className="mt-4 text-sm leading-6 text-slate-700">
+                  {policy.executiveSummary}
+                </p>
+                <div className="mt-4 space-y-2">
+                  {policy.capabilities.slice(0, 3).map((capability) => (
+                    <div
+                      key={capability.label}
+                      className="flex items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 text-sm"
+                    >
+                      <span className="text-slate-500">{capability.label}</span>
+                      <span className="font-semibold text-slate-900">
+                        {capability.value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </PremiumCard>
+      </section>
+
       {/* Pending Subscription Requests */}
       <section>
         <PremiumCard className="border-2 border-indigo-200">
@@ -277,7 +349,10 @@ export default async function PlatformPage() {
       <section className="grid gap-6 lg:grid-cols-2">
         {/* Subscription & Branding Control */}
         <PremiumCard className="border-2 border-purple-200">
-          <PremiumSectionTitle title="Subscription & Access" />
+          <PremiumSectionTitle
+            title="Contract and Access Governance"
+            subtitle="Assign subscription scope, commercial status, and branding entitlements."
+          />
 
           {/* Subscription Assignment */}
           <form action={assignSchoolSubscriptionAction} className="mt-6 space-y-4 border-b border-slate-200 pb-6">

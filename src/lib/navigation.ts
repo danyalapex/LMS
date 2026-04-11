@@ -61,6 +61,11 @@ export const navigationByRole: Record<UserRole, NavigationItem[]> = {
       description: "Billing plans, invoices, and fee collections.",
     },
     {
+      href: "/admin/settings",
+      label: "Settings",
+      description: "School grading scales, fee rules, and payment methods.",
+    },
+    {
       href: "/admin/workflows",
       label: "Workflows",
       description: "Approvals, transitions and audit stream.",
@@ -162,6 +167,11 @@ export const navigationByRole: Record<UserRole, NavigationItem[]> = {
       href: "/admin/payroll",
       label: "Payroll Ops",
       description: "Compensation, approvals and payouts.",
+    },
+    {
+      href: "/admin/settings",
+      label: "School Settings",
+      description: "Payment methods and fee collection policy.",
     },
     {
       href: "/admin/workflows",

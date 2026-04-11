@@ -1,21 +1,24 @@
 @import "tailwindcss";
 
 :root {
-  /* Brandable colors (overridden per-organization via layout.tsx) */
-  --brand-primary: #4f46e5;
-  --brand-secondary: #0f172a;
-  --brand-accent: #16a34a;
+  --brand-primary: #0f766e;
+  --brand-secondary: #1f2937;
+  --brand-accent: #d97706;
 
-  /* Semantic aliases used across the app */
-  --background: #eef2df;
-  --foreground: #101621;
-  --muted: #445069;
-  --panel: #f8f9f2;
-  --border: #d7ddc2;
-  --accent: var(--brand-accent);
-  --accent-soft: #d3f4e1;
-  --warning: #a9651a;
-  --warning-soft: #fae7d1;
+  --background: #f5f6ef;
+  --foreground: #111827;
+  --muted: #5b6472;
+  --panel: rgba(255, 255, 255, 0.82);
+  --panel-strong: rgba(255, 255, 255, 0.92);
+  --border: rgba(132, 145, 165, 0.28);
+  --border-strong: rgba(77, 95, 122, 0.24);
+  --accent: var(--brand-primary);
+  --accent-soft: rgba(15, 118, 110, 0.12);
+  --warning: #b45309;
+  --warning-soft: rgba(217, 119, 6, 0.14);
+  --danger: #be123c;
+  --danger-soft: rgba(190, 24, 93, 0.1);
+  --shadow: 0 24px 80px rgba(15, 23, 42, 0.08);
 }
 
 @theme inline {
@@ -25,28 +28,265 @@
   --font-mono: var(--font-jetbrains-mono);
 }
 
+html {
+  color-scheme: light;
+}
+
 body {
+  min-height: 100vh;
   background:
-    radial-gradient(circle at 15% 10%, rgba(255,255,255,0.7), transparent 45%),
-    radial-gradient(circle at 80% 0%, rgba(0,0,0,0.02), transparent 35%),
-    linear-gradient(180deg, var(--background) 0%, color-mix(in srgb, var(--brand-primary) 10%, var(--background) 90%) 55%, color-mix(in srgb, var(--brand-secondary) 6%, var(--background) 94%) 100%);
+    radial-gradient(circle at top left, rgba(15, 118, 110, 0.16), transparent 34%),
+    radial-gradient(circle at 82% 10%, rgba(217, 119, 6, 0.14), transparent 28%),
+    linear-gradient(180deg, #f7f7f2 0%, #eef1e7 45%, #f3f5ef 100%);
   color: var(--foreground);
   font-family: var(--font-space-grotesk), "Segoe UI", sans-serif;
 }
 
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(15, 23, 42, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.025) 1px, transparent 1px);
+  background-size: 52px 52px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.22), transparent 78%);
+}
+
+::selection {
+  background: rgba(15, 118, 110, 0.18);
+}
+
 @layer components {
   .panel {
-    @apply rounded-2xl border bg-[color:var(--panel)] shadow-sm;
+    @apply rounded-[28px] border backdrop-blur-xl;
+    background: var(--panel);
     border-color: var(--border);
+    box-shadow: var(--shadow);
+  }
+
+  .panel-strong {
+    @apply rounded-[32px] border backdrop-blur-xl;
+    background: var(--panel-strong);
+    border-color: var(--border);
+    box-shadow: var(--shadow);
   }
 
   .chip {
-    @apply inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold tracking-wide;
-    border-color: var(--border);
+    @apply inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em];
+    border-color: var(--border-strong);
+    background: rgba(255, 255, 255, 0.72);
     color: var(--muted);
   }
 
+  .eyebrow {
+    @apply text-xs font-semibold uppercase tracking-[0.3em];
+    color: var(--brand-primary);
+  }
+
   .section-heading {
-    @apply text-xl font-semibold tracking-tight;
+    @apply text-xl font-semibold tracking-tight text-slate-950;
+  }
+
+  .workspace-hero {
+    @apply rounded-[36px] border p-6 md:p-8;
+    background:
+      linear-gradient(140deg, rgba(255, 255, 255, 0.96), rgba(252, 253, 249, 0.82)),
+      linear-gradient(130deg, rgba(15, 118, 110, 0.08), rgba(217, 119, 6, 0.06));
+    border-color: rgba(255, 255, 255, 0.68);
+    box-shadow: 0 30px 80px rgba(15, 23, 42, 0.1);
+  }
+
+  .workspace-stat {
+    @apply rounded-[24px] border p-4;
+    border-color: var(--border);
+    background: rgba(255, 255, 255, 0.74);
+  }
+
+  .workspace-stat-accent {
+    background: linear-gradient(135deg, rgba(15, 118, 110, 0.16), rgba(255, 255, 255, 0.82));
+  }
+
+  .workspace-stat-neutral {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.76));
+  }
+
+  .workspace-stat-warn {
+    background: linear-gradient(135deg, rgba(217, 119, 6, 0.16), rgba(255, 255, 255, 0.84));
+  }
+
+  .workspace-panel {
+    @apply rounded-[30px] border overflow-hidden;
+    background: var(--panel-strong);
+    border-color: var(--border);
+    box-shadow: var(--shadow);
+  }
+
+  .workspace-panel-accent {
+    @apply rounded-[30px] border overflow-hidden;
+    background:
+      linear-gradient(180deg, rgba(15, 118, 110, 0.1), rgba(255, 255, 255, 0.92) 28%),
+      rgba(255, 255, 255, 0.94);
+    border-color: rgba(15, 118, 110, 0.16);
+    box-shadow: var(--shadow);
+  }
+
+  .toolbar-grid {
+    @apply grid gap-3 md:grid-cols-[minmax(0,1.4fr)_minmax(180px,0.8fr)_minmax(180px,0.8fr)];
+  }
+
+  .form-grid {
+    @apply grid gap-3 md:grid-cols-2;
+  }
+
+  .field {
+    @apply flex flex-col gap-2;
+  }
+
+  .field-span-2 {
+    @apply md:col-span-2;
+  }
+
+  .field-label {
+    @apply text-xs font-semibold uppercase tracking-[0.2em];
+    color: var(--muted);
+  }
+
+  .field-input,
+  .field-select,
+  .field-textarea {
+    @apply w-full rounded-2xl border px-4 py-3 text-sm outline-none transition;
+    border-color: var(--border);
+    background: rgba(255, 255, 255, 0.92);
+    color: var(--foreground);
+  }
+
+  .field-input::placeholder,
+  .field-textarea::placeholder {
+    color: color-mix(in srgb, var(--muted) 82%, white 18%);
+  }
+
+  .field-input:focus,
+  .field-select:focus,
+  .field-textarea:focus {
+    border-color: rgba(15, 118, 110, 0.36);
+    box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.12);
+  }
+
+  .button-primary,
+  .button-secondary,
+  .button-danger,
+  .button-ghost {
+    @apply inline-flex items-center justify-center rounded-full px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .button-primary {
+    color: white;
+    background: linear-gradient(135deg, var(--brand-primary), #115e59);
+    box-shadow: 0 14px 30px rgba(15, 118, 110, 0.2);
+  }
+
+  .button-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 18px 32px rgba(15, 118, 110, 0.24);
+  }
+
+  .button-secondary {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid var(--border-strong);
+    color: var(--foreground);
+  }
+
+  .button-secondary:hover {
+    background: rgba(255, 255, 255, 1);
+  }
+
+  .button-danger {
+    color: #9f1239;
+    background: var(--danger-soft);
+    border: 1px solid rgba(190, 24, 93, 0.18);
+  }
+
+  .button-danger:hover {
+    background: rgba(190, 24, 93, 0.16);
+  }
+
+  .button-ghost {
+    color: var(--brand-primary);
+    background: rgba(15, 118, 110, 0.08);
+    border: 1px solid rgba(15, 118, 110, 0.12);
+  }
+
+  .button-ghost:hover {
+    background: rgba(15, 118, 110, 0.14);
+  }
+
+  .record-stack {
+    @apply space-y-4;
+  }
+
+  .record-card {
+    @apply rounded-[28px] border p-5;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.9));
+    border-color: var(--border);
+    box-shadow: 0 18px 38px rgba(15, 23, 42, 0.08);
+  }
+
+  .record-metric {
+    @apply rounded-2xl border px-3 py-3;
+    border-color: rgba(132, 145, 165, 0.18);
+    background: rgba(255, 255, 255, 0.76);
+  }
+
+  .record-metric-label {
+    @apply block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500;
+  }
+
+  .record-metric-value {
+    @apply mt-2 block text-sm font-semibold text-slate-900;
+  }
+
+  .record-details {
+    @apply mt-4 rounded-[24px] border p-4;
+    border-color: rgba(132, 145, 165, 0.18);
+    background: rgba(244, 247, 243, 0.82);
+  }
+
+  .record-details summary {
+    @apply cursor-pointer list-none text-sm font-semibold text-slate-900;
+  }
+
+  .record-details summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .record-details[open] summary {
+    @apply mb-4;
+  }
+
+  .empty-state {
+    @apply rounded-[28px] border border-dashed px-5 py-8 text-center;
+    border-color: rgba(132, 145, 165, 0.34);
+    background: rgba(255, 255, 255, 0.72);
+  }
+
+  .status-pill {
+    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em];
+  }
+
+  .status-pill-good {
+    background: rgba(22, 163, 74, 0.14);
+    color: #166534;
+  }
+
+  .status-pill-warn {
+    background: var(--warning-soft);
+    color: #9a3412;
+  }
+
+  .status-pill-neutral {
+    background: rgba(100, 116, 139, 0.12);
+    color: #334155;
   }
 }

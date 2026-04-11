@@ -1,36 +1,19 @@
-"use client";
+import TenantBrandingClient from "./tenant-branding-client";
 
-import { useEffect } from "react";
+const DEFAULT = {
+  brand_name: null,
+  primary_color: "#4f46e5",
+  secondary_color: "#0f172a",
+  accent_color: "#16a34a",
+  logo_url: null,
+};
 
 export default function TenantBranding() {
-  useEffect(() => {
-    let mounted = true;
-
-    async function loadBranding() {
-      try {
-        const res = await fetch("/api/branding", { cache: "no-store" });
-        if (!mounted) return;
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!data) return;
-
-        const root = document.documentElement;
-        if (data.primary_color) root.style.setProperty("--brand-primary", data.primary_color);
-        if (data.secondary_color) root.style.setProperty("--brand-secondary", data.secondary_color);
-        if (data.accent_color) root.style.setProperty("--brand-accent", data.accent_color);
-        if (data.brand_name) root.style.setProperty("--brand-name", JSON.stringify(data.brand_name));
-      } catch (err) {
-        // ignore
-        console.debug("TenantBranding: failed to load branding", err);
-      }
-    }
-
-    loadBranding();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  return null;
+  const css = `:root{--brand-primary:${DEFAULT.primary_color};--brand-secondary:${DEFAULT.secondary_color};--brand-accent:${DEFAULT.accent_color};}`;
+  return (
+    <>
+      <style dangerouslySetInnerHTML={{ __html: css }} />
+      <TenantBrandingClient />
+    </>
+  );
 }
