@@ -197,3 +197,4 @@ on conflict (user_id, role) do nothing;
 - Advanced report engine and PDF exports
 - Audit and comprehensive dashboards
 - End-to-end tests and CI pipeline
+<!-- vercel-deploy-trigger: 2026-04-12 -->
