@@ -18,6 +18,11 @@ export const navigationByRole: Record<UserRole, NavigationItem[]> = {
       label: "Arkali Console",
       description: "Arkali Solutions subscription & revenue console.",
     },
+    {
+      href: "/platform/github-repos",
+      label: "GitHub Portfolio",
+      description: "Classify and hide non-AI repos to sharpen your AI engineer profile.",
+    },
   ],
   admin: [
     {
